@@ -1,11 +1,10 @@
 use std::{
     net::{TcpListener, TcpStream},
     io::{BufReader, BufRead, Write},
-    fs,
-    thread::{self, JoinHandle}, 
-    sync::{mpsc::{Sender, self, Receiver}, Arc, Mutex},
+    fs::{self, Metadata, FileType},
     str::FromStr, fmt::Display,
 };
+use website::thread::ThreadPool;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
@@ -33,85 +32,105 @@ fn handle_connection(mut stream: TcpStream) {
     let request_line = HTTPRequestLine::from_str(&request_line).unwrap();
 
     println!("request_line: {:?}, {}", request_line, request_line.path == "/");
-    let path = String::from("files") + &request_line.path;
-    println!("path: {}", path);
-    let (contents, status_line) = if path == "files/" {
-        (fs::read("files/index.html").unwrap(), "HTTP/1.1 200 OK")
+    let request_type = if request_line.path.starts_with("/css") || request_line.path.starts_with("/images") {
+        RequestType::OtherFile
     } else {
-        match fs::read(path) {
-            Ok(s) => (s, "HTTP/1.1 200 OK"),
-            Err(e) => {
-                println!("{}", e);
-                (fs::read("files/404.html").unwrap(), "HTTP/1.1 404 NOT FOUND")
-            }
-        }
+        RequestType::Html // worry about api later
     };
 
-    let length = contents.len();
+    match request_type {
+        RequestType::Html => html_request(&request_line.path, &mut stream),
+        RequestType::OtherFile => file_request(&request_line.path, &mut stream),
+        _ => unimplemented!(),
+    }
+    // let (contents, status_line) = if path == "files/" {
+    //     (fs::read("files/index.html").unwrap(), "HTTP/1.1 200 OK")
+    // } else {
+    //     match fs::read(path) {
+    //         Ok(s) => (s, "HTTP/1.1 200 OK"),
+    //         Err(e) => {
+    //             println!("{}", e);
+    //             (fs::read("files/404.html").unwrap(), "HTTP/1.1 404 NOT FOUND")
+    //         }
+    //     }
+    // };
 
-    let response_header =
-        format!("{status_line}\r\nContent-Length: {length}\r\n\r\n");
+    // let length = contents.len();
 
-    let response = [response_header.as_bytes(), &contents].concat();
+    // let response_header =
+    //     format!("{status_line}\r\nContent-Length: {length}\r\n\r\n");
 
-    stream.write_all(&response).unwrap();
+    // let response = [response_header.as_bytes(), &contents].concat();
+
+    // stream.write_all(&response).unwrap();
 }
 
-struct ThreadPool {
-    workers: Vec<Worker>,
-    sender: Sender<Job>,
-}
-
-type Job = Box<dyn FnOnce() + Send + 'static>;
-
-impl ThreadPool {
-    fn new(size: usize) -> Self {
-        assert!(size > 0);
-
-        let (sender, receiver) = mpsc::channel();
-
-        let receiver = Arc::new(Mutex::new(receiver));
-
-        let mut workers = Vec::with_capacity(size);
-
-        (0..size).for_each(|id| workers.push(Worker::new(id, Arc::clone(&receiver))));
-
-        ThreadPool {
-            workers,
-            sender,
+fn html_request(path: &str, stream: &mut TcpStream) {
+    println!("html!");
+    if path == "/" {
+        let contents = fs::read("files/index.html").unwrap();
+        let response = Response {
+            code: 200,
+            content_type: ContentType::Html,
+        }.to_bytes(contents);
+        stream.write_all(&response).unwrap();
+    } else {
+        let path = String::from("files") + path + ".html";
+        match fs::read(path) {
+            Ok(contents) => {
+                let response = Response {
+                    code: 200,
+                    content_type: ContentType::Html,
+                }.to_bytes(contents);
+                stream.write_all(&response).unwrap();
+            },
+            Err(_) => {
+                let data = fs::read("files/404.html").unwrap();
+                let response = Response {
+                    code: 404,
+                    content_type: ContentType::Html,
+                }.to_bytes(data);
+                stream.write_all(&response).unwrap();
+            }
         }
     }
-
-    fn execute<F>(&self, function: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
-        let job = Box::new(function);
-
-        self.sender.send(job).unwrap();
-    }
 }
 
-struct Worker {
-    id: usize,
-    thread: JoinHandle<()>,
-}
+fn file_request(path: &str, stream: &mut TcpStream) {
+    let content_type = if path.ends_with(".css") {
+        ContentType::Css
+    } else if path.ends_with(".js") {
+        ContentType::JavaScript
+    } else if path.ends_with(".png") {
+        ContentType::Image
+    } else {
+        unimplemented!()
+    };
 
-impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<Receiver<Job>>>) -> Worker {
-        let thread = thread::spawn(move || loop {
-            let job = receiver.lock().unwrap().recv().unwrap();
-
-            println!("Worker {id} got a job; executing.");
-
-            job();
-        });
-
-        Worker {
-            id, 
-            thread,
+    let path = String::from("files") + path;
+    match fs::read(path) {
+        Ok(data) => {
+            let response = Response {
+                code: 200,
+                content_type,
+            }.to_bytes(data);
+            stream.write_all(&response).unwrap();
+        },
+        Err(_) => {
+            let data = fs::read("files/404.html").unwrap();
+            let response = Response {
+                code: 404,
+                content_type: ContentType::Html,
+            }.to_bytes(data);
+            stream.write_all(&response).unwrap();
         }
     }
+}
+
+enum RequestType {
+    Api,
+    OtherFile,
+    Html,
 }
 
 fn make_code(code: u16) -> String {
@@ -128,10 +147,19 @@ struct Response {
     content_type: ContentType,
 }
 
+impl Response {
+    fn to_bytes(self, data: Vec<u8>) -> Vec<u8> {
+        let header = format!("{}\r\nContent-type: {}\r\nContent-length: {}\r\n\r\n", make_code(self.code), self.content_type, data.len());
+        println!("{}", header);
+        [header.as_bytes(), &data].concat()
+    }
+}
+
 #[derive(Debug)]
 enum ContentType {
     Image,
     Css,
+    JavaScript,
     Html,
 }
 
@@ -140,6 +168,7 @@ impl Display for ContentType {
         match self {
             Self::Image => write!(f, "image/png"),
             Self::Css => write!(f, "text/css"),
+            Self::JavaScript => write!(f, "text/javascript"),
             Self::Html => write!(f, "text/html"),
         }
     }
