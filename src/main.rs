@@ -1,7 +1,7 @@
 use std::{
     net::{TcpListener, TcpStream},
     io::{BufReader, BufRead, Write},
-    fs,
+    fs::{self, Metadata},
     str::FromStr,
     fmt::Display,
     path::Path,
@@ -11,18 +11,21 @@ use std::{
 use website::thread::ThreadPool;
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
 
     let pool = ThreadPool::new(8);
 
     for stream in listener.incoming() {
-        let stream = stream.unwrap();
+        match stream {
+            Ok(stream) => {
+                pool.execute(|| {
+                    handle_connection(stream)
+                });
+            }
+            Err(e) => println!("Error: {}, \n occured at: {}", e, turn_system_time_to_http_date(SystemTime::now())),
+        }
 
-        pool.execute(|| {
-            handle_connection(stream)
-        });
     }
-    println!("Hello, world!");
 }
 
 fn handle_connection(mut stream: TcpStream) {
@@ -30,10 +33,28 @@ fn handle_connection(mut stream: TcpStream) {
     let request_line = buf_reader.lines().next();
     let request_line = match request_line {
         None => return,
-        Some(option) => option.unwrap(),
+        Some(result) => {
+            match result {
+                Ok(string) => string,
+                Err(e) => {
+                    println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
+                    let response = Response::new_400_error(HTTPError::InvalidRequestLine);
+                    stream.write_all(&response).unwrap();
+                    return;
+                }
+            }
+        },
     };
 
-    let request_line = HTTPRequestLine::from_str(&request_line).unwrap();
+    let request_line = match HTTPRequestLine::from_str(&request_line) {
+        Ok(line) => line,
+        Err(e) => {
+            println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
+            let response = Response::new_400_error(e);
+            stream.write_all(&response).unwrap();
+            return;
+        }
+    };
 
     println!("request_line: {:?}, {}", request_line, request_line.path == "/");
     let path = Path::new(&request_line.path);
@@ -64,7 +85,7 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
     if path.as_os_str() == "/" {
         let index_path = Path::new("files/index.html");
         let contents = fs::read(index_path).unwrap();
-        let last_modified = match index_path.metadata().unwrap().modified() {
+        let last_modified = match index_path.metadata().and_then(into_modified) {
             Ok(time) => Some(time),
             Err(_) => None,
         };
@@ -83,7 +104,7 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
 
         match fs::read(&path) {
             Ok(contents) => {
-                let last_modified = match path.metadata().unwrap().modified() {
+                let last_modified = match path.metadata().and_then(into_modified) {
                     Ok(time) => Some(time),
                     Err(_) => None,
                 };
@@ -96,7 +117,16 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
                 stream.write_all(&response).unwrap();
             },
             Err(_) => {
-                let data = fs::read("files/404.html").unwrap();
+                let data = match fs::read("files/404.html") {
+                    Ok(data) => data,
+                    Err(e) => {
+                        println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(time));
+                        let response = Response::empty_500_error();
+                        stream.write_all(&response).unwrap();
+                        return;
+                    }
+                };
+
                 let response = Response {
                     code: 404,
                     content_type: ContentType::Html,
@@ -117,18 +147,16 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
         Some("png") => ContentType::Image,
         ext => {
             println!("Unsuported extention: {:?}", ext);
-            let response = Response::EMPTY404;
-            println!("{:?}", response);
-            let bytes = response.to_bytes("Not Found".as_bytes());
-            stream.write_all(&bytes).unwrap();
+            let response = Response::new_400_error(HTTPError::InvalidPath);
+            stream.write_all(&response).unwrap();
             return;
         }
     };
 
-    //paths will single handly kill me
+    // paths will single handly kill me
+    // also we know path stripping wont fail bc we make sure it starts with one
     let path = Path::new("files").join(path.strip_prefix("/").unwrap());
-    let meta_data = path.metadata().unwrap();
-    let last_modified_date = match meta_data.modified() {
+    let last_modified_date = match path.metadata().and_then(into_modified) {
         Ok(time) => Some(time),
         Err(_) => None,
     };
@@ -162,7 +190,9 @@ enum RequestType {
 fn make_code(code: u16) -> String {
     match code {
         200 => String::from("HTTP/1.1 200 OK"),
+        400 => String::from("HTTP/1.1 400 BAD REQUEST"),
         404 => String::from("HTTP/1.1 404 NOT FOUND"),
+        500 => String::from("HTTP/1.1 500 INTERAL SERVER ERROR"),
         _ => unimplemented!(),
     }
 }
@@ -182,6 +212,28 @@ impl Response {
         modified_date: None,
         current_time: None,
     };
+
+    fn empty_500_error() -> Vec<u8> {
+        let response = Self {
+            code: 500,
+            content_type: ContentType::PlainText,
+            modified_date: None,
+            current_time: Some(SystemTime::now()),
+        };
+        let content = "Internal Server Error";
+        response.to_bytes(content.as_bytes())
+    }
+
+    fn new_400_error(error: HTTPError) -> Vec<u8> {
+        let response = Self {
+            code: 404,
+            content_type: ContentType::PlainText,
+            modified_date: None,
+            current_time: Some(SystemTime::now()),
+        };
+        let content = format!("{}", error);
+        response.to_bytes(content.as_bytes())
+    }
 
     fn to_bytes(self, data: &[u8]) -> Vec<u8> {
         let header = format!("{}\r\nContent-type: {}\r\nContent-length: {}\r\n", make_code(self.code), self.content_type, data.len());
@@ -245,9 +297,14 @@ impl FromStr for HTTPRequestLine {
         };
 
         let path = match groups.next() {
-            None => return Err(HTTPError::MissingPath),
+            None => return Err(HTTPError::InvalidPath),
             Some(s) => s.to_string()
         };
+
+        // garuntees unwrap wont fail later
+        if !s.starts_with('/') {
+            return Err(HTTPError::InvalidPath);
+        }
 
         match groups.next() {
             None => return Err(HTTPError::InvalidVersion),
@@ -269,16 +326,31 @@ enum HTTPType {
 
 #[derive(Clone, Copy, Debug)]
 enum HTTPError {
-    MissingPath,
+    InvalidPath,
     InvalidRequestType,
     InvalidVersion,
     InvalidRequestLine,
 }
 
+impl Display for HTTPError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidRequestLine => writeln!(f, "Request line was invalid"),
+            Self::InvalidRequestType => writeln!(f, "Invalid or missing request type"),
+            Self::InvalidVersion => writeln!(f, "Invalid or missing HTTP version"),
+            Self::InvalidPath => writeln!(f, "Invalid or missing path")
+        }
+    }
+}
+
+// made to use and_then on results for reading meta data to avoid unsessicary unwrap
+fn into_modified(metadata: Metadata) -> Result<SystemTime, std::io::Error> {
+    metadata.modified()
+}
+
 fn turn_system_time_to_http_date(time: SystemTime) -> String {
     let time_since_epoch = time.duration_since(UNIX_EPOCH).expect("Times should be after the epoch");
     let seconds_since_epoch = time_since_epoch.as_secs();
-    println!("{}", seconds_since_epoch);
     if seconds_since_epoch >= 253402300800 {
         // year 9999
         panic!("date must be before year 9999");
