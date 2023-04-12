@@ -7,11 +7,14 @@ use std::{
     path::Path,
     ffi::OsStr,
     time::{SystemTime, UNIX_EPOCH},
+    env,
 };
 use website::thread::ThreadPool;
 
 fn main() {
-    let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
+    let port = env::var("PORT").expect("Need PORT env var");
+    let addr = String::from("0.0.0.0:") + &port;
+    let listener = TcpListener::bind(addr).unwrap();
 
     let pool = ThreadPool::new(8);
 
@@ -302,7 +305,7 @@ impl FromStr for HTTPRequestLine {
         };
 
         // garuntees unwrap wont fail later
-        if !s.starts_with('/') {
+        if !path.starts_with('/') {
             return Err(HTTPError::InvalidPath);
         }
 
