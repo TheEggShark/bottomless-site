@@ -23,4 +23,8 @@ impl ApiRegister {
         let api = self.apis.get(path).unwrap();
         api()
     }
+
+    pub fn get_api(&self, path: &str) -> Option<&Api> {
+        self.apis.get(path)
+    }
 }

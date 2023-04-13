@@ -6,18 +6,15 @@ use std::{
     fmt::Display,
     path::Path,
     ffi::OsStr,
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
     env,
 };
 use website::thread::ThreadPool;
 use website::apis::ApiRegister;
-use lazy_static::lazy_static;
 
-lazy_static!{
-    static ref APIS: ApiRegister = {
-        let register = ApiRegister::new();
-        register
-    };
+fn test_api() {
+    println!("sad");
 }
 
 fn main() {
@@ -26,12 +23,16 @@ fn main() {
     let listener = TcpListener::bind(addr).unwrap();
 
     let pool = ThreadPool::new(8);
+    let mut apis = ApiRegister::new();
+    apis.register_api("/api/test", Box::new(test_api));
+    let apis = Arc::new(apis);
 
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                pool.execute(|| {
-                    handle_connection(stream, &APIS)
+                let apis = apis.clone();
+                pool.execute(move || {
+                    handle_connection(stream, apis)
                 });
             }
             Err(e) => println!("Error: {}, \n occured at: {}", e, turn_system_time_to_http_date(SystemTime::now())),
@@ -40,7 +41,7 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: TcpStream, apis: &ApiRegister) {
+fn handle_connection(mut stream: TcpStream, apis: Arc<ApiRegister>) {
     let buf_reader = BufReader::new(&mut stream);
     let request_line = buf_reader.lines().next();
     let request_line = match request_line {
@@ -70,14 +71,15 @@ fn handle_connection(mut stream: TcpStream, apis: &ApiRegister) {
 
     println!("request_line: {:?}, {}", request_line, request_line.path == "/");
     let path = Path::new(&request_line.path);
-    let request_type = match path.parent() {
-        Some(parent_path) if parent_path == Path::new("/") => {
+    let request_type = match path.parent().and_then(Path::to_str) {
+        Some("/") => {
             if path == Path::new("/favicon.ico") {
                 RequestType::OtherFile
             } else {
                 RequestType::Html
             }
         },
+        Some("/api") => RequestType::Api,
         None => RequestType::Html, // this is the index.html
         Some(_) => RequestType::OtherFile,
     };
@@ -87,7 +89,7 @@ fn handle_connection(mut stream: TcpStream, apis: &ApiRegister) {
     match request_type {
         RequestType::Html => html_request(Path::new(&request_line.path), &mut stream),
         RequestType::OtherFile => file_request(Path::new(&request_line.path), &mut stream),
-        _ => unimplemented!(),
+        RequestType::Api => api_request(path, apis ,&mut stream),
     }
 }
 
@@ -192,6 +194,24 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
     }
 }
 
+fn api_request(path: &Path, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
+    let path = match path.to_str() {
+        Some(str) => str,
+        None => {
+            stream.write_all(&Response::new_400_error(HTTPError::InvalidPath)).unwrap();
+            return;
+        }
+    };
+    let api = apis.get_api(path);
+    match api {
+        None => {},
+        Some(api) => api(),
+    }
+
+    let response = Response::empty_ok();
+    stream.write_all(&response).unwrap();
+}
+
 #[derive(Debug)]
 enum RequestType {
     Api,
@@ -224,6 +244,15 @@ impl Response {
         modified_date: None,
         current_time: None,
     };
+
+    fn empty_ok() -> Vec<u8> {
+        Self {
+            code: 200,
+            content_type: ContentType::PlainText,
+            modified_date: None,
+            current_time: Some(SystemTime::now()),
+        }.to_bytes("OK".as_bytes())
+    }
 
     fn empty_500_error() -> Vec<u8> {
         let response = Self {
