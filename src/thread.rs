@@ -2,6 +2,8 @@ use std::sync::mpsc::{self, Sender, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
+use crate::apis::ApiRegister;
+
 
 #[allow(dead_code)]
 pub struct ThreadPool {

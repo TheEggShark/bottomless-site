@@ -10,6 +10,15 @@ use std::{
     env,
 };
 use website::thread::ThreadPool;
+use website::apis::ApiRegister;
+use lazy_static::lazy_static;
+
+lazy_static!{
+    static ref APIS: ApiRegister = {
+        let register = ApiRegister::new();
+        register
+    };
+}
 
 fn main() {
     let port = env::var("PORT").expect("Need PORT env var");
@@ -22,7 +31,7 @@ fn main() {
         match stream {
             Ok(stream) => {
                 pool.execute(|| {
-                    handle_connection(stream)
+                    handle_connection(stream, &APIS)
                 });
             }
             Err(e) => println!("Error: {}, \n occured at: {}", e, turn_system_time_to_http_date(SystemTime::now())),
@@ -31,7 +40,7 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
+fn handle_connection(mut stream: TcpStream, apis: &ApiRegister) {
     let buf_reader = BufReader::new(&mut stream);
     let request_line = buf_reader.lines().next();
     let request_line = match request_line {
