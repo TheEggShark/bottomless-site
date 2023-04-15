@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use crate::types::Response;
 
-type Api = Box<dyn Fn() -> () + Send + Sync + 'static>;
+type Api = Box<dyn Fn() -> Response + Send + Sync + 'static>;
 
 pub struct ApiRegister {
     apis: HashMap<String, Api>,
@@ -17,11 +18,6 @@ impl ApiRegister {
 
     pub fn register_api(&mut self, path: &str, api: Api) {
         self.apis.insert(path.into(), api);
-    }
-
-    pub fn run_api(&self, path: &str) {
-        let api = self.apis.get(path).unwrap();
-        api()
     }
 
     pub fn get_api(&self, path: &str) -> Option<&Api> {
