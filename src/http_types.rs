@@ -1,4 +1,7 @@
+use std::net::TcpStream;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::str::FromStr;
+use std::io::{BufReader, BufRead, Write, Read};
 
 #[derive(Debug)]
 pub enum RequestType {
@@ -98,6 +101,20 @@ pub enum ContentType {
     PlainText,
 }
 
+impl std::str::FromStr for ContentType {
+    type Err = HTTPError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "image/png" => Ok(Self::Image),
+            "text/css" => Ok(Self::Css),
+            "text/javascript" => Ok(Self::JavaScript),
+            "text/html" => Ok(Self::Html),
+            "text/plain" => Ok(Self::PlainText),
+            _ => Err(HTTPError::InvalidContentType),
+        }
+    }
+}
+
 impl std::fmt::Display for ContentType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -110,10 +127,116 @@ impl std::fmt::Display for ContentType {
     }
 }
 
+// used for API's to take a request either get or post without wierd jank,
+pub enum Request {
+    GetRequest(GETRequest),
+    POSTRequest(POSTRequest),
+}
+
+#[derive(Debug)]
+pub struct POSTRequest {
+    path: String,
+    host: String,
+    content_type: ContentType,
+    content_length: usize,
+    content: Vec<u8>,
+}
+
+impl POSTRequest {
+    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>) -> Result<Self, HTTPError>{
+        let path = line.path;
+
+        let (header, mut reader) = split_post_request(reader)?;
+
+        let mut host = String::new();
+        let mut content_type = ContentType::PlainText;
+        let mut content_length = 0;
+
+        for line in header.lines() {
+            if line.starts_with("Content-Type: ") {
+                content_type = ContentType::from_str(&line[14..])?;
+            } else if line.starts_with("Host: ") {
+                host.push_str(&line[6..]);
+            } else if line.starts_with("Content-Length: ") {
+                content_length = match line[16..].parse() {
+                    Err(_) => return Err(HTTPError::InvalidContentLength),
+                    Ok(num) => num,
+                };
+            }
+        }
+
+        // read content length
+        let mut content: Vec<u8> = Vec::with_capacity(content_length);
+        let mut amount_read = 0;
+        while amount_read < content_length {
+            const BUFFER_SIZE: usize = 10;
+            let mut buffer = [0_u8; BUFFER_SIZE];
+            let amount_to_read = BUFFER_SIZE.min(content_length - amount_read);
+            match reader.read_exact(&mut buffer[..amount_to_read]) {
+                Err(_) => return Err(HTTPError::InvalidContent),
+                Ok(_) => {},
+            }
+            content.extend(&buffer[..amount_to_read]);
+            amount_read += BUFFER_SIZE;
+        }
+
+        Ok(Self {
+            path,
+            host,
+            content_type,
+            content_length,
+            content
+        })
+    }
+}
+
+fn split_post_request(mut reader: BufReader<&mut TcpStream>) -> Result<(String, BufReader<&mut TcpStream>), HTTPError> {
+    // some how split the body from the header
+    // this will be painfull and horrible
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_until(b'\r', &mut buf) {
+            Ok(_) => {},
+            Err(_) => return Err(HTTPError::InvalidHeader),
+        }
+        let mut minor_buf = [0_u8; 3];
+        match reader.read_exact(&mut minor_buf) {
+            Ok(_) => {},
+            Err(_) => return Err(HTTPError::InvalidHeader),
+        }
+        if minor_buf == [b'\n', b'\r', b'\n'] {
+            buf.extend(minor_buf);
+            break;
+        } else {
+            // failed to find the double newline but still need to extend the buffer
+            // as its still part from the header
+            buf.extend(minor_buf);
+            continue;
+        }
+    }
+
+    let header_string = match String::from_utf8(buf) {
+        Ok(string) => string,
+        Err(_) => return Err(HTTPError::InvalidHeader),
+    };
+
+    Ok((header_string, reader))
+}
+
+pub struct GETRequest {
+    path: String,
+}
+
 #[derive(Debug)]
 pub struct HTTPRequestLine {
     kind: HTTPType,
     pub path: String,
+}
+
+impl HTTPRequestLine {
+    pub fn get_kind(&self) -> HTTPType {
+        self.kind
+    }
 }
 
 impl std::str::FromStr for HTTPRequestLine {
@@ -172,6 +295,10 @@ pub enum HTTPError {
     InvalidRequestType,
     InvalidVersion,
     InvalidRequestLine,
+    InvalidHeader,
+    InvalidContentType,
+    InvalidContentLength,
+    InvalidContent,
 }
 
 impl std::fmt::Display for HTTPError {
@@ -180,7 +307,11 @@ impl std::fmt::Display for HTTPError {
             Self::InvalidRequestLine => writeln!(f, "Request line was invalid"),
             Self::InvalidRequestType => writeln!(f, "Invalid or missing request type"),
             Self::InvalidVersion => writeln!(f, "Invalid or missing HTTP version"),
-            Self::InvalidPath => writeln!(f, "Invalid or missing path")
+            Self::InvalidPath => writeln!(f, "Invalid or missing path"),
+            Self::InvalidHeader => writeln!(f, "Invalid or missing header"),
+            Self::InvalidContentType => writeln!(f, "Invalid or missing Content-Type"),
+            Self::InvalidContentLength => writeln!(f, "Invalid or missing Content-Length"),
+            Self::InvalidContent => writeln!(f, "Content to short for Content-Length or invalid Content"),
         }
     }
 }

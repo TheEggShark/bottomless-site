@@ -1,6 +1,6 @@
 use std::{
     net::{TcpListener, TcpStream},
-    io::{BufReader, BufRead, Write},
+    io::{BufReader, BufRead, Write, Read},
     fs::{self, Metadata},
     path::Path,
     ffi::OsStr,
@@ -14,7 +14,8 @@ use website::apis::ApiRegister;
 use website::types::{
     ContentType, RequestType,
     HTTPRequestLine, Response,
-    HTTPError, turn_system_time_to_http_date
+    HTTPError, turn_system_time_to_http_date,
+    HTTPType, POSTRequest,
 };
 
 fn test_api() -> Response {
@@ -53,24 +54,31 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream, apis: Arc<ApiRegister>) {
-    let buf_reader = BufReader::new(&mut stream);
-    let request_line = buf_reader.lines().next();
-    let request_line = match request_line {
-        None => return,
-        Some(result) => {
-            match result {
+    let mut buf_reader = BufReader::new(&mut stream);
+
+    // should theoretically grab the 'GET path HTTP/1.1\r\n' 
+    let mut first_line_buffer = Vec::new();
+    let request_line_string = match buf_reader.read_until(b'\n', &mut first_line_buffer) {
+        Ok(_) => {
+            match String::from_utf8(first_line_buffer) {
                 Ok(string) => string,
                 Err(e) => {
                     println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
                     let response = Response::new_400_error(HTTPError::InvalidRequestLine).into_bytes();
-                    stream.write_all(&response).unwrap();
+                    stream.write_all(&response).ok();
                     return;
-                }
+                },
             }
         },
+        Err(e) => {
+            println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
+            let response = Response::new_400_error(HTTPError::InvalidRequestLine).into_bytes();
+            stream.write_all(&response).ok();
+            return;
+        }
     };
 
-    let request_line = match HTTPRequestLine::from_str(&request_line) {
+    let request_line = match HTTPRequestLine::from_str(&request_line_string) {
         Ok(line) => line,
         Err(e) => {
             println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
@@ -80,6 +88,16 @@ fn handle_connection(mut stream: TcpStream, apis: Arc<ApiRegister>) {
         }
     };
 
+    match request_line.get_kind() {
+        HTTPType::Get => process_get_request(request_line, apis, &mut stream),
+        HTTPType::Post => {
+            let post_req = POSTRequest::new(request_line, buf_reader).unwrap();
+            println!("{:?}", post_req);
+        },
+    }
+}
+
+fn process_get_request(request_line: HTTPRequestLine, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
     println!("request_line: {:?}, {}", request_line, request_line.path == "/");
     let path = Path::new(&request_line.path);
     let request_type = match path.parent().and_then(Path::to_str) {
@@ -98,9 +116,9 @@ fn handle_connection(mut stream: TcpStream, apis: Arc<ApiRegister>) {
 
 
     match request_type {
-        RequestType::Html => html_request(path, &mut stream),
-        RequestType::OtherFile => file_request(path, &mut stream),
-        RequestType::Api => api_request(path, apis ,&mut stream),
+        RequestType::Html => html_request(path, stream),
+        RequestType::OtherFile => file_request(path, stream),
+        RequestType::Api => api_request(path, apis , stream),
     }
 }
 
