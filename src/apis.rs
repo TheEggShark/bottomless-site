@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use crate::types::Response;
+use crate::types::{Response, Request};
 
-type Api = Box<dyn Fn() -> Response + Send + Sync + 'static>;
+type Api = Box<dyn Fn(Request) -> Response + Send + Sync + 'static>;
 
 pub struct ApiRegister {
     apis: HashMap<String, Api>,

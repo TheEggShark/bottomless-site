@@ -128,9 +128,46 @@ impl std::fmt::Display for ContentType {
 }
 
 // used for API's to take a request either get or post without wierd jank,
+#[derive(Debug)]
 pub enum Request {
     GetRequest(GETRequest),
     POSTRequest(POSTRequest),
+}
+
+impl Request {
+    pub fn new(mut buf_reader: BufReader<&mut TcpStream>) -> Result<Self, HTTPError> {
+        // should theoretically grab the 'GET path HTTP/1.1\r\n' 
+        let mut first_line_buffer = Vec::new();
+        let request_line_string = match buf_reader.read_until(b'\n', &mut first_line_buffer) {
+            Ok(_) => {
+                match String::from_utf8(first_line_buffer) {
+                    Ok(string) => string,
+                    Err(e) => {
+                        println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
+                        return Err(HTTPError::InvalidRequestLine);
+                    },
+                }
+            },
+            Err(e) => {
+                println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
+                return Err(HTTPError::InvalidRequestLine);
+            }
+        };
+
+        let request_line = HTTPRequestLine::from_str(&request_line_string)?;
+
+        match request_line.get_kind() {
+            HTTPType::Get => Ok(Self::GetRequest(GETRequest{path: request_line.path})),
+            HTTPType::Post => Ok(Self::POSTRequest(POSTRequest::new(request_line, buf_reader)?)),
+        }
+    }
+
+    pub fn get_path(&self) -> &str {
+        match self {
+            Request::GetRequest(r) => &r.path,
+            Request::POSTRequest(r) => &r.path,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -223,8 +260,9 @@ fn split_post_request(mut reader: BufReader<&mut TcpStream>) -> Result<(String, 
     Ok((header_string, reader))
 }
 
+#[derive(Debug)]
 pub struct GETRequest {
-    path: String,
+    pub path: String,
 }
 
 #[derive(Debug)]

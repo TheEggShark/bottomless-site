@@ -5,7 +5,7 @@ use std::{
     path::Path,
     ffi::OsStr,
     sync::Arc,
-    time::SystemTime,
+    time::{SystemTime, Instant},
     str::FromStr,
     env,
 };
@@ -15,10 +15,14 @@ use website::types::{
     ContentType, RequestType,
     HTTPRequestLine, Response,
     HTTPError, turn_system_time_to_http_date,
-    HTTPType, POSTRequest,
+    HTTPType, POSTRequest, Request,
+    GETRequest,
 };
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport,};
 
-fn test_api() -> Response {
+
+fn test_api(_: Request) -> Response {
     let data = String::from("Test api!").into_bytes();
     Response {
         code: 200,
@@ -30,6 +34,28 @@ fn test_api() -> Response {
 }
 
 fn main() {
+    let mut secrets = include_str!("../secrets").lines();
+    let username = secrets.next().unwrap();
+    let password = secrets.next().unwrap();
+    drop(secrets);
+    let creds = Credentials::new(username.to_string(), password.to_string());
+    let email = Message::builder()
+        .from("charles crabtree <charles.crabtree@turtlebamboo.com>".parse().unwrap())
+        .to("MEAGIAN <charles.crabtree@gamil.com>".parse().unwrap())
+        .subject("cool test dawg!")
+        .body("hi father I am sending you this from an API i wrote isnt that cool!".to_string())
+        .unwrap();
+    let timer = Instant::now();
+    let mailer = SmtpTransport::relay("smtp.gmail.com")
+        .unwrap()
+        .credentials(creds)
+        .build();
+    println!("{}", timer.elapsed().as_millis());
+    // match mailer.send(&email) {
+    //     Ok(_) => println!("check your email"),
+    //     Err(e) => println!("no email {:?}", e),
+    // }
+
     let port = env::var("PORT").expect("Need PORT env var");
     let addr = String::from("0.0.0.0:") + &port;
     let listener = TcpListener::bind(addr).unwrap();
@@ -54,52 +80,28 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream, apis: Arc<ApiRegister>) {
-    let mut buf_reader = BufReader::new(&mut stream);
+    let buf_reader = BufReader::new(&mut stream);
 
-    // should theoretically grab the 'GET path HTTP/1.1\r\n' 
-    let mut first_line_buffer = Vec::new();
-    let request_line_string = match buf_reader.read_until(b'\n', &mut first_line_buffer) {
-        Ok(_) => {
-            match String::from_utf8(first_line_buffer) {
-                Ok(string) => string,
-                Err(e) => {
-                    println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
-                    let response = Response::new_400_error(HTTPError::InvalidRequestLine).into_bytes();
-                    stream.write_all(&response).ok();
-                    return;
-                },
-            }
-        },
+    let request = match Request::new(buf_reader) {
+        Ok(r) => r,
         Err(e) => {
-            println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
-            let response = Response::new_400_error(HTTPError::InvalidRequestLine).into_bytes();
-            stream.write_all(&response).ok();
+            println!("Error: {}, occured at: {:?}", e, turn_system_time_to_http_date(SystemTime::now()));
+            let respoonse = Response::new_400_error(e).into_bytes();
+            stream.write_all(&respoonse).unwrap();
             return;
         }
     };
 
-    let request_line = match HTTPRequestLine::from_str(&request_line_string) {
-        Ok(line) => line,
-        Err(e) => {
-            println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
-            let response = Response::new_400_error(e).into_bytes();
-            stream.write_all(&response).unwrap();
-            return;
-        }
-    };
-
-    match request_line.get_kind() {
-        HTTPType::Get => process_get_request(request_line, apis, &mut stream),
-        HTTPType::Post => {
-            let post_req = POSTRequest::new(request_line, buf_reader).unwrap();
-            println!("{:?}", post_req);
-        },
+    match request {
+        Request::GetRequest(_) => process_get_request(request, apis, &mut stream),
+        Request::POSTRequest(_) => process_post_request(request, apis, &mut stream)
     }
 }
 
-fn process_get_request(request_line: HTTPRequestLine, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
-    println!("request_line: {:?}, {}", request_line, request_line.path == "/");
-    let path = Path::new(&request_line.path);
+fn process_get_request(request: Request, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
+    let path = request.get_path();
+    println!("request_line: {:?}, {}", request, path == "/");
+    let path = Path::new(path);
     let request_type = match path.parent().and_then(Path::to_str) {
         Some("/") => {
             if path == Path::new("/favicon.ico") {
@@ -118,8 +120,12 @@ fn process_get_request(request_line: HTTPRequestLine, apis: Arc<ApiRegister>, st
     match request_type {
         RequestType::Html => html_request(path, stream),
         RequestType::OtherFile => file_request(path, stream),
-        RequestType::Api => api_request(path, apis , stream),
+        RequestType::Api => api_request(apis , stream, request),
     }
+}
+
+fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
+    println!("post!, {:?}", request);
 }
 
 fn html_request(path: &Path, stream: &mut TcpStream) {
@@ -232,18 +238,13 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
     }
 }
 
-fn api_request(path: &Path, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
-    let path = match path.to_str() {
-        Some(string) => string,
-        None => {
-            stream.write_all(&Response::new_400_error(HTTPError::InvalidPath).into_bytes()).unwrap();
-            return;
-        }
-    };
+fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request) {
+    let path = request.get_path();
+
     let api = apis.get_api(path);
     let response = match api {
         None => Response::empty_404(),
-        Some(api) => api(),
+        Some(api) => api(request),
     };
 
     stream.write_all(&response.into_bytes()).unwrap();
