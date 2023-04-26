@@ -19,18 +19,37 @@ use website::types::{
     GETRequest,
 };
 use lettre::transport::smtp::authentication::Credentials;
-use lettre::{Message, SmtpTransport, Transport,};
+use lettre::SmtpTransport;
 
 
 fn test_api(_: Request) -> Response {
+    println!("Test Api!");
     let data = String::from("Test api!").into_bytes();
     Response {
         code: 200,
         content_type: ContentType::PlainText,
         current_time: Some(SystemTime::now()),
         modified_date: None,
+        allowed: None,
         data
     }
+}
+
+fn mail_api(request: Request, mailer: &Arc<SmtpTransport>) -> Response {
+    println!("{:?}", request);
+    let request = match request {
+        Request::GetRequest(_) => {
+            let res = Response::new_405_error("POST");
+            return res;
+        }, //405 error
+        Request::POSTRequest(r) => r,
+    };
+    let string = String::from_utf8_lossy(request.get_data());
+    println!("{}", string);
+    // email length in u8 followed by email
+    // then cotent-length as u16 32? should be valid utf8 but might not matter here
+    println!("{}", mailer.test_connection().unwrap());
+    Response::empty_ok()
 }
 
 fn main() {
@@ -38,23 +57,19 @@ fn main() {
     let username = secrets.next().unwrap();
     let password = secrets.next().unwrap();
     drop(secrets);
+
     let creds = Credentials::new(username.to_string(), password.to_string());
-    let email = Message::builder()
-        .from("charles crabtree <charles.crabtree@turtlebamboo.com>".parse().unwrap())
-        .to("MEAGIAN <charles.crabtree@gamil.com>".parse().unwrap())
-        .subject("cool test dawg!")
-        .body("hi father I am sending you this from an API i wrote isnt that cool!".to_string())
-        .unwrap();
-    let timer = Instant::now();
     let mailer = SmtpTransport::relay("smtp.gmail.com")
         .unwrap()
         .credentials(creds)
         .build();
-    println!("{}", timer.elapsed().as_millis());
-    // match mailer.send(&email) {
-    //     Ok(_) => println!("check your email"),
-    //     Err(e) => println!("no email {:?}", e),
-    // }
+    let mailer = Arc::new(mailer);
+
+    let clone = mailer.clone();
+    // seething at this implementation of an api with a mailer
+    let email_api = move |r: Request| -> Response {
+        mail_api(r, &clone)
+    };
 
     let port = env::var("PORT").expect("Need PORT env var");
     let addr = String::from("0.0.0.0:") + &port;
@@ -63,6 +78,7 @@ fn main() {
     let pool = ThreadPool::new(8);
     let mut apis = ApiRegister::new();
     apis.register_api("/api/test", Box::new(test_api));
+    apis.register_api("/api/mail", Box::new(email_api));
     let apis = Arc::new(apis);
 
     for stream in listener.incoming() {
@@ -126,6 +142,33 @@ fn process_get_request(request: Request, apis: Arc<ApiRegister>, stream: &mut Tc
 
 fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
     println!("post!, {:?}", request);
+    // should therortically just be an API request
+    match Path::new(request.get_path()).parent().and_then(Path::to_str) {
+        Some("/api") => {},
+        Some(_) => {
+            // honeslty not sure what error code belongs here
+            let mut response = Response::empty_404().into_bytes();
+            stream.write_all(&mut response).unwrap();
+            return;
+        }
+        None => {
+            // errors
+            let mut response = Response::empty_404().into_bytes();
+            stream.write_all(&mut response).unwrap();
+            return;
+        }
+    };
+    let api = match apis.get_api(request.get_path()) {
+        Some(a) => a,
+        None => {
+            let mut response = Response::empty_404().into_bytes();
+            stream.write_all(&mut response).unwrap();
+            return;
+        }
+    };
+
+    let res = api(request);
+    stream.write_all(&mut res.into_bytes()).unwrap();
 }
 
 fn html_request(path: &Path, stream: &mut TcpStream) {
@@ -144,6 +187,7 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
             content_type: ContentType::Html,
             modified_date: last_modified,
             current_time: Some(time),
+            allowed: None,
             data,
         }.into_bytes();
         stream.write_all(&response).unwrap();
@@ -163,6 +207,7 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
                     content_type: ContentType::Html,
                     modified_date: last_modified,
                     current_time: Some(time),
+                    allowed: None,
                     data,
                 }.into_bytes();
                 stream.write_all(&response).unwrap();
@@ -188,6 +233,7 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
                     modified_date,
                     content_type: ContentType::Html,
                     current_time: Some(SystemTime::now()),
+                    allowed: None,
                     data,
                 }.into_bytes();
                 stream.write_all(&response).unwrap();
@@ -227,6 +273,7 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
                 content_type,
                 current_time: Some(time),
                 modified_date: last_modified_date,
+                allowed: None,
                 data,
             }.into_bytes();
             stream.write_all(&response).unwrap();

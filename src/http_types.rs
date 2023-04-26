@@ -15,6 +15,7 @@ fn make_code(code: u16) -> String {
         200 => String::from("HTTP/1.1 200 OK"),
         400 => String::from("HTTP/1.1 400 BAD REQUEST"),
         404 => String::from("HTTP/1.1 404 NOT FOUND"),
+        405 => String::from("HTTP/1.1 405 METHOD NOT ALLOWED"),
         500 => String::from("HTTP/1.1 500 INTERAL SERVER ERROR"),
         _ => unimplemented!(),
     }
@@ -26,6 +27,7 @@ pub struct Response {
     pub content_type: ContentType,
     pub modified_date: Option<SystemTime>,
     pub current_time: Option<SystemTime>,
+    pub allowed: Option<String>,
     pub data: Vec<u8>,
 }
 
@@ -37,6 +39,7 @@ impl Response {
             content_type: ContentType::PlainText,
             modified_date: None,
             current_time: Some(SystemTime::now()),
+            allowed: None,
             data,
         }
     }
@@ -48,6 +51,7 @@ impl Response {
             content_type: ContentType::PlainText,
             modified_date: None,
             current_time: Some(SystemTime::now()),
+            allowed: None,
             data,
         }
     }
@@ -59,6 +63,7 @@ impl Response {
             content_type: ContentType::PlainText,
             modified_date: None,
             current_time: Some(SystemTime::now()),
+            allowed: None,
             data,
         }
     }
@@ -70,6 +75,19 @@ impl Response {
             content_type: ContentType::PlainText,
             modified_date: None,
             current_time: Some(SystemTime::now()),
+            allowed: None,
+            data,
+        }
+    }
+
+    pub fn new_405_error(accpected: &str) -> Self {
+        let data = String::from("Method Not Allowed").into_bytes();
+        Self {
+            code: 405,
+            content_type: ContentType::PlainText,
+            modified_date: None,
+            current_time: Some(SystemTime::now()),
+            allowed: Some(accpected.into()),
             data,
         }
     }
@@ -81,12 +99,17 @@ impl Response {
             Some(time) => format!("Last-Modified: {}\r\n", turn_system_time_to_http_date(time)),
         };
 
+        let accpected = match self.allowed {
+            None => String::new(),
+            Some(s) => format!("Accpect: {}\r\n", s),
+        };
+
         let date = match self.current_time {
             Some(time) => format!("Date: {}\r\n\r\n", turn_system_time_to_http_date(time)),
             None => String::from("\r\n"),
         };
 
-        let line = header + &modified_date + &date;
+        let line = header + &modified_date + &accpected + &date;
         println!("{}", line);
         [line.as_bytes(), &self.data].concat()
     }
@@ -224,6 +247,14 @@ impl POSTRequest {
             content_length,
             content
         })
+    }
+
+    pub fn get_path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn get_data(&self) -> &[u8] {
+        &self.content
     }
 }
 
