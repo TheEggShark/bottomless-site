@@ -1,7 +1,7 @@
 use std::net::TcpStream;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::str::FromStr;
-use std::io::{BufReader, BufRead, Write, Read};
+use std::io::{BufReader, BufRead, Read};
 
 #[derive(Debug)]
 pub enum RequestType {
@@ -32,6 +32,18 @@ pub struct Response {
 }
 
 impl Response {
+    pub fn new(code: u16, content_type: ContentType, modified_date: Option<SystemTime>, allowed: Option<String>, data: Vec<u8>) -> Self {
+        let current_time = Some(SystemTime::now());
+        Self {
+            code,
+            content_type,
+            modified_date,
+            current_time,
+            allowed,
+            data,
+        }
+    }
+
     pub fn empty_404() -> Self {
         let data = String::from("NOT FOUND").into_bytes();
         Self {
@@ -122,17 +134,20 @@ pub enum ContentType {
     JavaScript,
     Html,
     PlainText,
+    OctetStream, // should be raw binary
 }
 
 impl std::str::FromStr for ContentType {
     type Err = HTTPError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        println!("{s}");
         match s {
             "image/png" => Ok(Self::Image),
             "text/css" => Ok(Self::Css),
             "text/javascript" => Ok(Self::JavaScript),
             "text/html" => Ok(Self::Html),
             "text/plain" => Ok(Self::PlainText),
+            "application/octet-stream" => Ok(Self::OctetStream),
             _ => Err(HTTPError::InvalidContentType),
         }
     }
@@ -146,6 +161,7 @@ impl std::fmt::Display for ContentType {
             Self::JavaScript => write!(f, "text/javascript"),
             Self::Html => write!(f, "text/html"),
             Self::PlainText => write!(f, "text/plain"),
+            Self::OctetStream => write!(f, "application/octet-stream"),
         }
     }
 }
@@ -253,8 +269,16 @@ impl POSTRequest {
         &self.path
     }
 
+    pub fn get_host(&self) -> &str {
+        &self.host
+    }
+
     pub fn get_data(&self) -> &[u8] {
         &self.content
+    }
+
+    pub fn get_data_length(&self) -> usize {
+        self.content_length
     }
 }
 

@@ -35,7 +35,7 @@ fn test_api(_: Request) -> Response {
     }
 }
 
-fn mail_api(request: Request, mailer: &Arc<SmtpTransport>) -> Response {
+fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
     println!("{:?}", request);
     let request = match request {
         Request::GetRequest(_) => {
@@ -44,11 +44,18 @@ fn mail_api(request: Request, mailer: &Arc<SmtpTransport>) -> Response {
         }, //405 error
         Request::POSTRequest(r) => r,
     };
-    let string = String::from_utf8_lossy(request.get_data());
-    println!("{}", string);
-    // email length in u8 followed by email
-    // then cotent-length as u16 32? should be valid utf8 but might not matter here
-    println!("{}", mailer.test_connection().unwrap());
+    let mut data = BufReader::new(request.get_data());
+    let mut email_len = [0_u8; 1];
+    data.read_exact(&mut email_len).unwrap();
+    let mut email = vec![0_u8; email_len[0] as usize];
+    data.read_exact(&mut email).unwrap();
+    let mut message_len = [0_u8; 2];
+    data.read_exact(&mut message_len).unwrap();
+    let message_len = u16::from_le_bytes(message_len) as usize;
+    let mut message = vec![0_u8; message_len];
+    data.read_exact(&mut message).unwrap();
+    // send the email!
+    println!("{} \n{}", String::from_utf8_lossy(&email), String::from_utf8_lossy(&message));
     Response::empty_ok()
 }
 
@@ -64,11 +71,10 @@ fn main() {
         .credentials(creds)
         .build();
     let mailer = Arc::new(mailer);
-
-    let clone = mailer.clone();
     // seething at this implementation of an api with a mailer
     let email_api = move |r: Request| -> Response {
-        mail_api(r, &clone)
+        let clone = mailer.clone();
+        mail_api(r, clone)
     };
 
     let port = env::var("PORT").expect("Need PORT env var");
