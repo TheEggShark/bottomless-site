@@ -18,9 +18,13 @@ use website::types::{
     HTTPType, POSTRequest, Request,
     GETRequest,
 };
-use lettre::transport::smtp::authentication::Credentials;
+use lettre::{transport::smtp::authentication::Credentials, Message, message::Mailbox, Transport};
 use lettre::SmtpTransport;
 
+// creds should be filled like:
+// example@example.com
+// password
+const CREDS: &str = include_str!("../secrets");
 
 fn test_api(_: Request) -> Response {
     println!("Test Api!");
@@ -55,7 +59,35 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
     let mut message = vec![0_u8; message_len];
     data.read_exact(&mut message).unwrap();
     // send the email!
-    println!("{} \n{}", String::from_utf8_lossy(&email), String::from_utf8_lossy(&message));
+    let user_email = String::from_utf8_lossy(&email);
+    let user_message = String::from_utf8_lossy(&message); 
+    let message_to_self = format!("contacter email: {user_email},\n\n{user_message}");
+    let send_to = CREDS.lines().next().unwrap();
+    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
+    let email_to_self = Message::builder()
+        .from("x <example@example.com>".parse().unwrap())
+        .to(self_mailbox)
+        .body(message_to_self)
+        .unwrap();
+    
+    match mailer.send(&email_to_self) {
+        Ok(_) => println!("email send succesfully"),
+        Err(e) => println!("Could not send email: {e:?}"),
+    }
+
+    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
+    let email_to_client = Message::builder()
+        .from(self_mailbox)
+        .to(format!("person <{user_email}>").parse().unwrap())
+        .body("thanks for reaching out I will try to be in contact with you shortly".to_string())
+        .unwrap();
+
+    match mailer.send(&email_to_client) {
+        Ok(_) => println!("email send succesfully"),
+        Err(e) => println!("Could not send email: {e:?}"),
+    }
+
+    println!("{} \n{}", user_email, user_message);
     Response::empty_ok()
 }
 
