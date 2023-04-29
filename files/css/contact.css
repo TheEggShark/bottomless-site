@@ -10,6 +10,47 @@ html, body {
 .contact-page-flex {
     margin: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
+}
+
+.contact-page-wrapper {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 15px;
+    width: 900px;
+    padding: 30px;
+    padding-left: 40px;
+    padding-right: 40px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+}
+
+.contact-div {
+    flex-basis: 100%;
+    width: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.contact-form {
+    width: 400px;
+    text-align: center;
+}
+
+.message-box {
+    height: 150px;
+    resize: both;
+    text-align: justify;
+}
+
+.submit-button {
+    background-color: lightblue;
+    height: 40px;
+    width: 100px;
+    border-radius: 10px;
+    border: none;
 }

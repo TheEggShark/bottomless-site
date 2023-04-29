@@ -1,20 +1,21 @@
 const encoder = new TextEncoder();
 const emailRegex = new RegExp(/^[A-Za-z0-9_!#$%&'*+\/=?`{|}~^.-]+@[A-Za-z0-9.-]+$/, "gm");
 
-function sendApiRequest() {
+function sendMailApiRequest() {
     const email = document.getElementById("email").value;
-    const email_bytes = encoder.encode(email);
-    const email_len = email_bytes.length;
-    if (email_len > 255) {
-        console.log("email to long");
-        return;
-    }
 
     if (!emailRegex.test(email)) {
         console.log("not an valid email");
         return;
     }
     
+
+    const email_bytes = encoder.encode(email);
+    const email_len = email_bytes.length;
+    if (email_len > 255) {
+        console.log("email to long");
+        return;
+    }
     const len_plus_mail = new Uint8Array(email_len + 1);
     len_plus_mail.set([email_len]);
     len_plus_mail.set(email_bytes, 1);

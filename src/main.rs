@@ -39,6 +39,9 @@ fn test_api(_: Request) -> Response {
     }
 }
 
+// takes ~1.6 seconds to send both emails and send a response
+// ~675ms per email so might async or do something to speed this up
+// maybe multithread each email (this is a joke)
 fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
     println!("{:?}", request);
     let request = match request {
@@ -48,16 +51,68 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
         }, //405 error
         Request::POSTRequest(r) => r,
     };
+
     let mut data = BufReader::new(request.get_data());
     let mut email_len = [0_u8; 1];
-    data.read_exact(&mut email_len).unwrap();
+
+    match data.read_exact(&mut email_len) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Email Length Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
     let mut email = vec![0_u8; email_len[0] as usize];
-    data.read_exact(&mut email).unwrap();
+
+    match data.read_exact(&mut email) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Email Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
     let mut message_len = [0_u8; 2];
-    data.read_exact(&mut message_len).unwrap();
+
+    match data.read_exact(&mut message_len) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Message Length Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
     let message_len = u16::from_le_bytes(message_len) as usize;
     let mut message = vec![0_u8; message_len];
-    data.read_exact(&mut message).unwrap();
+    match data.read_exact(&mut message) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Message Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
     // send the email!
     let user_email = String::from_utf8_lossy(&email);
     let user_message = String::from_utf8_lossy(&message); 
@@ -70,10 +125,12 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
         .body(message_to_self)
         .unwrap();
     
+    let time = Instant::now();
     match mailer.send(&email_to_self) {
         Ok(_) => println!("email send succesfully"),
         Err(e) => println!("Could not send email: {e:?}"),
     }
+    println!("{}", time.elapsed().as_millis());
 
     let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
     let email_to_client = Message::builder()
@@ -87,7 +144,6 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
         Err(e) => println!("Could not send email: {e:?}"),
     }
 
-    println!("{} \n{}", user_email, user_message);
     Response::empty_ok()
 }
 

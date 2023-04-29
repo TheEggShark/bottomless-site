@@ -28,7 +28,7 @@ html, body {
 }
 
 .front-page-message-wrapper {
-    flex: 0 0 100%;
+    flex-basis: 100%;
     text-align: center;
 }
 

@@ -10,14 +10,20 @@
 </head>
 <body>
     <div class="contact-page-flex">
-        <h1>Send an email</h1>
-        <div>
-
+        <div class="contact-page-wrapper">
+            <h1>Send an email</h1>
+            <h2>If you want my resume here it is</h2>
+            <div class="contact-div">
+                <div class="contact-form">
+                    <h1>Send me a Message!</h1>
+                    <input id="email" placeholder="example@example.com">
+                    <p>message</p>
+                    <textarea class="message-box" id="message" placeholder="message"></textarea>
+                    <br>
+                    <button class="submit-button" onclick="sendMailApiRequest()">send message</button>
+                </div>
+            </div>
         </div>
-        <h2>If you want my resume here it is</h2>
-        <input id="email" placeholder="example@example.com">
-        <input id="message" placeholder="message">
-        <button onclick="sendApiRequest()">test!</button>
     </div>
 </body>
 </html>
