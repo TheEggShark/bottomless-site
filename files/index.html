@@ -6,26 +6,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Charles Crabtree</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/contact.js" defert></script>
 </head>
 <body>
     <div class="front-page-flex">
         <div class="front-page-wrapper">
             <div class="front-page-message-wrapper">
-                <h1>🦀🦀 Welcome! 🦀🦀</h1>
+                <h1>Bottomless-Site</h1>
                 <p class="front-page-message"> 
-                    Hi, I'm Charles Crabtree a Junior in Highschool. I currently spend most of my time programming in rust
-                    in various projects. If you want to see how I'm doing on my projects checkout my blog or github below.
-                    If you're here for any other reason like tutoring requests or just want to reach out to me go to the contact
-                    me page.
+                    Welcome to Bottomless-Site, this currently serves more as a tech demo for the webserver I wrote
+                    which you can see 
+                    <a href="https://github.com/TheEggShark/bottomless-site" target="_blank" rel="noopener noreferrer">here</a>. 
+                    I personally enjoy programming in rust, with an intrest in computer graphics and rendering.
                 </p>
+                <a href="https://github.com/TheEggShark" target="_blank" rel="noopener noreferrer"><img src="images/github-mark.png" class="github-logo"></a>
             </div>
             <div class="front-page-trio">
-                <h2 class="front-page-item">Blog</h2>
-                <h2 class="front-page-item"><a href="/contact">Contact</a></h2>
                 <div class="front-page-item">
-                    <h2>Github</h2>
-                    <a href="https://github.com/TheEggShark" target="_blank" rel="noopener noreferrer"><img src="images/github-mark.png" class="github-logo"></a>
-                    <p>checkout all my projects you can even see the source for this website here (add link)</p>
+                    <h2>Projects</h2>
+                    <div>
+                        <div class="inner-trio">
+                            <h3>Bottomless-Pit</h3>
+                            <p>A rendering engine written entirely in rust</p>
+                        </div>
+                        <div class="inner-trio">
+                            <h3>Bottomless-Site</h3>
+                            <p>An HTTP webserver written in rust that is used to host this website</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="front-page-item">
+                    <h2>Blog</h2>
+                    <div>
+                        <div class="inner-trio">
+                            <h3>blog post title 1</h3>
+                            <p>cool little detial</p>
+                        </div>
+                        <div class="inner-trio">
+                            <h3>blog post title 2</h32>
+                            <p>cool little detail</p>
+                        </div>
+                        <a>see all posts -></a>
+                    </div>
+                </div>
+                <div class="front-page-item">
+                    <h2>Contact</h2>
+                    <input class="emailbox" id="email" placeholder="example@example.com">
+                    <textarea class="message-box" id="message" placeholder="message"></textarea>
+                    <br>
+                    <button class="submit-button" onclick="sendMailApiRequest()">Send Email!</button>
                 </div>
             </div>
         </div>

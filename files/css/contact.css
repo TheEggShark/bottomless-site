@@ -3,6 +3,7 @@ html, body, .contact-page-flex {
 }
 
 html, body {
+    background-color: black;
     margin: 0;
     padding: 0;
 }
@@ -13,10 +14,11 @@ html, body {
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
+    color: white;
 }
 
 .contact-page-wrapper {
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: rgba(255, 255, 255, 0.3);
     border-radius: 15px;
     width: 900px;
     padding: 30px;
@@ -26,6 +28,11 @@ html, body {
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
+    box-shadow: 
+        inset 0px 0px 30px 5px rgba(255, 255, 255, 0.9),
+        0 0 50px #fff,
+        -10px 0 80px #f0f,
+        10px 0 80px #0ff;
 }
 
 .contact-div {
@@ -42,9 +49,27 @@ html, body {
 }
 
 .message-box {
+    resize: none;
     height: 150px;
-    resize: both;
+    width: 350px;
     text-align: justify;
+    font-family: 'Times New Roman', Times, serif;
+    border-radius: 15px;
+    padding: 10px;
+    border: none;
+}
+
+.message-box:focus {
+    background-color: aqua;
+    outline: none;
+    border: none;
+    box-shadow: none;
+}
+
+.message-box:active {
+    outline: 0px none transparent;
+    border: none;
+    box-shadow: none;
 }
 
 .submit-button {
