@@ -148,7 +148,7 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
 }
 
 fn main() {
-    let mut secrets = include_str!("../secrets").lines();
+    let mut secrets = CREDS.lines();
     let username = secrets.next().unwrap();
     let password = secrets.next().unwrap();
     drop(secrets);
