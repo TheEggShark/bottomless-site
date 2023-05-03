@@ -2,27 +2,35 @@ html, body, .front-page-flex {
     height: 100%;
 }
 
+textarea {
+    font: inherit;
+}
+
 a:visited {
-    text-decoration: none;
+    text-decoration: underline;
 }
 
 a:hover {
-    text-decoration: none;
+    text-decoration: underline;
 }
 
 a:active {
-    text-decoration: none;
+    text-decoration: underline;
 }
 
 a {
     color: white;
-    text-decoration: none;
+    text-decoration: underline;
 }
 
 html, body {
     background-color: #02111B;
     margin: 0;
     padding: 0;
+}
+
+.color-remover {
+    color: transparent;
 }
 
 .front-page-flex {
@@ -56,6 +64,15 @@ html, body {
     text-align: center;
 }
 
+.logo-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding-top: 15px;
+    padding-bottom: 15px;
+}
+
 .front-page-trio {
     background-color: #423841;
     border-radius: 15px;
@@ -74,6 +91,38 @@ html, body {
     margin: 20px;
 }
 
+.project-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px;
+    gap: 0;
+}
+
+.project-icon {
+    margin: 0;
+    width: 75px;
+    height: 75px;
+}
+
+.project-discription {
+    padding-left: 5px;
+    text-align: start;
+}
+
+.project-text {
+    display: inline;
+}
+
+.blog-text {
+    display: inline;
+}
+
+.blog-section {
+    text-align: start;
+    padding: 10px;
+}
+
 .front-page-item {
     height: 400px;
     width: 30%;
@@ -90,7 +139,6 @@ html, body {
     height: 150px;
     width: 300px;
     text-align: justify;
-    font-family: 'Times New Roman', Times, serif;
     border-radius: 15px;
     padding: 10px;
     border: none;

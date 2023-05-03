@@ -12,47 +12,70 @@
     <div class="front-page-flex">
         <div class="front-page-wrapper">
             <div class="front-page-message-wrapper">
-                <h1>Bottomless-Site</h1>
+                <h1>&#x1F980;&#x1F980;Bottomless-Site&#x1F980;&#x1F980;</h1>
                 <p class="front-page-message"> 
                     Welcome to Bottomless-Site, this currently serves more as a tech demo for the webserver I wrote
                     which you can see 
                     <a href="https://github.com/TheEggShark/bottomless-site" target="_blank" rel="noopener noreferrer">here</a>. 
                     I personally enjoy programming in rust, with an intrest in computer graphics and rendering.
                 </p>
-                <a href="https://github.com/TheEggShark" target="_blank" rel="noopener noreferrer"><img src="images/github-mark.png" class="github-logo"></a>
+                <div class="logo-bar">
+                    <a href="https://github.com/TheEggShark" target="_blank" rel="noopener noreferrer" class="color-remover github-logo">
+                        <img src="images/github-mark.png" class="github-logo" alt="GitHub Logo">
+                    </a>
+                    <a href="https://crates.io/crates/bottomless-pit" target="_blank" rel="noopener noreferrer" class="color-remover github-logo">
+                        <img src="images/rust-logo-blk.svg" class="github-logo" alt="Rust Logo"/>
+                    </a>
+                </div>
             </div>
             <div class="front-page-trio">
                 <div class="front-page-item">
                     <h2>Projects</h2>
                     <div>
-                        <div class="inner-trio">
-                            <h3>Bottomless-Pit</h3>
-                            <p>A rendering engine written entirely in rust</p>
+                        <div class="inner-trio project-display">
+                            <a href="https://github.com/TheEggShark/bottomless-pit" target="_blank" rel="noopener noreferrer" class="project-icon">
+                                <img src="images/testing_triangle.png" class="project-icon" alt="rainbow triangle">
+                            </a>
+                            <div class="project-discription">
+                                <span>
+                                    <h3 class="project-text">Bottomless-Pit:</h3>
+                                    <p class="project-text">A rendering engine written entirely in rust</p>
+                                </span>
+                            </div>
                         </div>
-                        <div class="inner-trio">
-                            <h3>Bottomless-Site</h3>
-                            <p>An HTTP webserver written in rust that is used to host this website</p>
+                        <div class="inner-trio project-display">
+                            <a href="https://github.com/TheEggShark/bottomless-site" target="_blank" rel="noopener noreferrer" class="project-icon">
+                                <img src="images/mail_api.png" class="project-icon" alt="code snippet">
+                            </a>
+                            <div class="project-discription">
+                                <h3 class="project-text">Bottomless-Site:</h3>
+                                <p class="project-text">An HTTP webserver written in rust used to host this website</p>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="front-page-item">
                     <h2>Blog</h2>
                     <div>
-                        <div class="inner-trio">
-                            <h3>blog post title 1</h3>
-                            <p>cool little detial</p>
+                        <div class="inner-trio blog-section">
+                            <h3 class="blog-text">blog post title 1</h3>
+                            <p class="blog-text">cool little detial, perhabs even a complete intro sentence</p>
                         </div>
-                        <div class="inner-trio">
-                            <h3>blog post title 2</h32>
-                            <p>cool little detail</p>
+                        <div class="inner-trio blog-section">
+                            <h3 class="blog-text">blog post title 2</h3>
+                            <p class="blog-text">cool little detail, perhaps even more of an intro sentnce</p>
                         </div>
-                        <a>see all posts -></a>
+                        <a href="/blog">see all posts -></a>
                     </div>
                 </div>
                 <div class="front-page-item">
                     <h2>Contact</h2>
-                    <input class="emailbox" id="email" placeholder="example@example.com">
-                    <textarea class="message-box" id="message" placeholder="message"></textarea>
+                    <label for="email">Email:</label>
+                    <br>
+                    <input class="emailbox" id="email" placeholder="example@example.com" name="email">
+                    <br>
+                    <label for="message">Message:</label>
+                    <textarea class="message-box" id="message" placeholder="message" name="message"></textarea>
                     <br>
                     <button class="submit-button" onclick="sendMailApiRequest()">Send Email!</button>
                 </div>

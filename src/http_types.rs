@@ -129,7 +129,7 @@ impl Response {
 
 #[derive(Debug)]
 pub enum ContentType {
-    Image,
+    Image(ImageType),
     Css,
     JavaScript,
     Html,
@@ -137,12 +137,18 @@ pub enum ContentType {
     OctetStream, // should be raw binary
 }
 
+#[derive(Debug)]
+pub enum ImageType {
+    Png,
+    Svg,
+}
+
 impl std::str::FromStr for ContentType {
     type Err = HTTPError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         println!("{s}");
         match s {
-            "image/png" => Ok(Self::Image),
+            "image/png" => Ok(Self::Image(ImageType::Png)),
             "text/css" => Ok(Self::Css),
             "text/javascript" => Ok(Self::JavaScript),
             "text/html" => Ok(Self::Html),
@@ -156,7 +162,8 @@ impl std::str::FromStr for ContentType {
 impl std::fmt::Display for ContentType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Image => write!(f, "image/png"),
+            Self::Image(ImageType::Png) => write!(f, "image/png"),
+            Self::Image(ImageType::Svg) => write!(f, "image/svg+xml"),
             Self::Css => write!(f, "text/css"),
             Self::JavaScript => write!(f, "text/javascript"),
             Self::Html => write!(f, "text/html"),

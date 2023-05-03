@@ -16,7 +16,7 @@ use website::types::{
     HTTPRequestLine, Response,
     HTTPError, turn_system_time_to_http_date,
     HTTPType, POSTRequest, Request,
-    GETRequest,
+    GETRequest, ImageType,
 };
 use lettre::{transport::smtp::authentication::Credentials, Message, message::Mailbox, Transport};
 use lettre::SmtpTransport;
@@ -341,7 +341,8 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
     let content_type = match path.extension().and_then(OsStr::to_str) {
         Some("css") => ContentType::Css,
         Some("js") => ContentType::JavaScript,
-        Some("png") => ContentType::Image,
+        Some("png") => ContentType::Image(ImageType::Png),
+        Some("svg") => ContentType::Image(ImageType::Svg),
         ext => {
             println!("Unsuported extention: {:?}", ext);
             let response = Response::new_400_error(HTTPError::InvalidPath).into_bytes();
