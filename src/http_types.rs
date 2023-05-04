@@ -1,4 +1,4 @@
-use std::net::TcpStream;
+use std::net::{TcpStream, SocketAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::str::FromStr;
 use std::io::{BufReader, BufRead, Read};
@@ -16,6 +16,7 @@ fn make_code(code: u16) -> String {
         400 => String::from("HTTP/1.1 400 BAD REQUEST"),
         404 => String::from("HTTP/1.1 404 NOT FOUND"),
         405 => String::from("HTTP/1.1 405 METHOD NOT ALLOWED"),
+        415 => String::from("HTTP/1.1 415 UNSUPPORTED MEDIA TYPE"),
         500 => String::from("HTTP/1.1 500 INTERAL SERVER ERROR"),
         _ => unimplemented!(),
     }
@@ -23,17 +24,17 @@ fn make_code(code: u16) -> String {
 
 #[derive(Debug)]
 pub struct Response {
-    pub code: u16,
-    pub content_type: ContentType,
-    pub modified_date: Option<SystemTime>,
-    pub current_time: Option<SystemTime>,
-    pub allowed: Option<String>,
-    pub data: Vec<u8>,
+    code: u16,
+    content_type: ContentType,
+    modified_date: Option<SystemTime>,
+    current_time: SystemTime,
+    allowed: Option<String>,
+    data: Vec<u8>,
 }
 
 impl Response {
     pub fn new(code: u16, content_type: ContentType, modified_date: Option<SystemTime>, allowed: Option<String>, data: Vec<u8>) -> Self {
-        let current_time = Some(SystemTime::now());
+        let current_time = SystemTime::now();
         Self {
             code,
             content_type,
@@ -44,13 +45,25 @@ impl Response {
         }
     }
 
+    pub fn new_ok(content_type: ContentType, modified_date: Option<SystemTime>, data: Vec<u8>) -> Self {
+        let current_time = SystemTime::now();
+        Self {
+            code: 200,
+            content_type,
+            modified_date,
+            current_time,
+            allowed: None,
+            data,
+        }
+    }
+
     pub fn empty_404() -> Self {
         let data = String::from("NOT FOUND").into_bytes();
         Self {
             code: 404,
             content_type: ContentType::PlainText,
             modified_date: None,
-            current_time: Some(SystemTime::now()),
+            current_time: SystemTime::now(),
             allowed: None,
             data,
         }
@@ -62,7 +75,7 @@ impl Response {
             code: 200,
             content_type: ContentType::PlainText,
             modified_date: None,
-            current_time: Some(SystemTime::now()),
+            current_time: SystemTime::now(),
             allowed: None,
             data,
         }
@@ -74,7 +87,7 @@ impl Response {
             code: 500,
             content_type: ContentType::PlainText,
             modified_date: None,
-            current_time: Some(SystemTime::now()),
+            current_time: SystemTime::now(),
             allowed: None,
             data,
         }
@@ -86,7 +99,7 @@ impl Response {
             code: 400,
             content_type: ContentType::PlainText,
             modified_date: None,
-            current_time: Some(SystemTime::now()),
+            current_time: SystemTime::now(),
             allowed: None,
             data,
         }
@@ -98,7 +111,7 @@ impl Response {
             code: 405,
             content_type: ContentType::PlainText,
             modified_date: None,
-            current_time: Some(SystemTime::now()),
+            current_time: SystemTime::now(),
             allowed: Some(accpected.into()),
             data,
         }
@@ -116,10 +129,7 @@ impl Response {
             Some(s) => format!("Accpect: {}\r\n", s),
         };
 
-        let date = match self.current_time {
-            Some(time) => format!("Date: {}\r\n\r\n", turn_system_time_to_http_date(time)),
-            None => String::from("\r\n"),
-        };
+        let date = format!("Date: {}\r\n\r\n", turn_system_time_to_http_date(self.current_time));
 
         let line = header + &modified_date + &accpected + &date;
         println!("{}", line);
@@ -127,7 +137,7 @@ impl Response {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ContentType {
     Image(ImageType),
     Css,
@@ -137,7 +147,7 @@ pub enum ContentType {
     OctetStream, // should be raw binary
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum ImageType {
     Png,
     Svg,
@@ -181,7 +191,16 @@ pub enum Request {
 }
 
 impl Request {
-    pub fn new(mut buf_reader: BufReader<&mut TcpStream>) -> Result<Self, HTTPError> {
+    pub fn new(stream: &mut TcpStream) -> Result<Self, HTTPError> {
+        let ip = match stream.peer_addr() {
+            Ok(ip) => ip,
+            Err(e) => {
+                return Err(HTTPError::FailedToObtainIP)
+            }
+        };
+
+        let mut buf_reader = BufReader::new(stream);
+
         // should theoretically grab the 'GET path HTTP/1.1\r\n' 
         let mut first_line_buffer = Vec::new();
         let request_line_string = match buf_reader.read_until(b'\n', &mut first_line_buffer) {
@@ -203,8 +222,8 @@ impl Request {
         let request_line = HTTPRequestLine::from_str(&request_line_string)?;
 
         match request_line.get_kind() {
-            HTTPType::Get => Ok(Self::GetRequest(GETRequest{path: request_line.path})),
-            HTTPType::Post => Ok(Self::POSTRequest(POSTRequest::new(request_line, buf_reader)?)),
+            HTTPType::Get => Ok(Self::GetRequest(GETRequest{path: request_line.path, ip})),
+            HTTPType::Post => Ok(Self::POSTRequest(POSTRequest::new(request_line, buf_reader, ip)?)),
         }
     }
 
@@ -220,13 +239,14 @@ impl Request {
 pub struct POSTRequest {
     path: String,
     host: String,
+    ip: SocketAddr,
     content_type: ContentType,
     content_length: usize,
     content: Vec<u8>,
 }
 
 impl POSTRequest {
-    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>) -> Result<Self, HTTPError>{
+    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>, ip: SocketAddr) -> Result<Self, HTTPError>{
         let path = line.path;
 
         let (header, mut reader) = split_post_request(reader)?;
@@ -266,6 +286,7 @@ impl POSTRequest {
         Ok(Self {
             path,
             host,
+            ip,
             content_type,
             content_length,
             content
@@ -286,6 +307,10 @@ impl POSTRequest {
 
     pub fn get_data_length(&self) -> usize {
         self.content_length
+    }
+
+    pub fn get_content_type(&self) -> ContentType {
+        self.content_type
     }
 }
 
@@ -325,6 +350,7 @@ fn split_post_request(mut reader: BufReader<&mut TcpStream>) -> Result<(String, 
 #[derive(Debug)]
 pub struct GETRequest {
     pub path: String,
+    ip: SocketAddr,
 }
 
 #[derive(Debug)]
@@ -399,6 +425,7 @@ pub enum HTTPError {
     InvalidContentType,
     InvalidContentLength,
     InvalidContent,
+    FailedToObtainIP,
 }
 
 impl std::fmt::Display for HTTPError {
@@ -412,6 +439,7 @@ impl std::fmt::Display for HTTPError {
             Self::InvalidContentType => writeln!(f, "Invalid or missing Content-Type"),
             Self::InvalidContentLength => writeln!(f, "Invalid or missing Content-Length"),
             Self::InvalidContent => writeln!(f, "Content to short for Content-Length or invalid Content"),
+            Self::FailedToObtainIP => writeln!(f, "Unable to get IP address of the client"),
         }
     }
 }

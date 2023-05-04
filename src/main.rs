@@ -29,21 +29,13 @@ const CREDS: &str = include_str!("../secrets");
 fn test_api(_: Request) -> Response {
     println!("Test Api!");
     let data = String::from("Test api!").into_bytes();
-    Response {
-        code: 200,
-        content_type: ContentType::PlainText,
-        current_time: Some(SystemTime::now()),
-        modified_date: None,
-        allowed: None,
-        data
-    }
+    Response::new_ok(ContentType::PlainText, None, data)
 }
 
 // takes ~1.6 seconds to send both emails and send a response
 // ~675ms per email so might async or do something to speed this up
 // maybe multithread each email (this is a joke)
 fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
-    println!("{:?}", request);
     let request = match request {
         Request::GetRequest(_) => {
             let res = Response::new_405_error("POST");
@@ -51,6 +43,14 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
         }, //405 error
         Request::POSTRequest(r) => r,
     };
+
+    match request.get_content_type() {
+        ContentType::OctetStream => {},
+        _ => {
+            let data = String::from("Unssuported Media Type").into_bytes();
+            return Response::new(415, ContentType::PlainText, None, None, data)
+        }
+    }
 
     let mut data = BufReader::new(request.get_data());
     let mut email_len = [0_u8; 1];
@@ -190,14 +190,12 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream, apis: Arc<ApiRegister>) {
-    let buf_reader = BufReader::new(&mut stream);
-
-    let request = match Request::new(buf_reader) {
+    let request = match Request::new(&mut stream) {
         Ok(r) => r,
         Err(e) => {
             println!("Error: {}, occured at: {:?}", e, turn_system_time_to_http_date(SystemTime::now()));
-            let respoonse = Response::new_400_error(e).into_bytes();
-            stream.write_all(&respoonse).unwrap();
+            let response = Response::new_400_error(e).into_bytes();
+            stream.write_all(&response).unwrap_or_else(log_write_error);
             return;
         }
     };
@@ -241,33 +239,31 @@ fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut T
         Some("/api") => {},
         Some(_) => {
             // honeslty not sure what error code belongs here
-            let mut response = Response::empty_404().into_bytes();
-            stream.write_all(&mut response).unwrap();
+            let response = Response::empty_404().into_bytes();
+            stream.write_all(&response).unwrap_or_else(log_write_error);
             return;
         }
         None => {
             // errors
-            let mut response = Response::empty_404().into_bytes();
-            stream.write_all(&mut response).unwrap();
+            let response = Response::empty_404().into_bytes();
+            stream.write_all(&response).unwrap_or_else(log_write_error);
             return;
         }
     };
     let api = match apis.get_api(request.get_path()) {
         Some(a) => a,
         None => {
-            let mut response = Response::empty_404().into_bytes();
-            stream.write_all(&mut response).unwrap();
+            let response = Response::empty_404().into_bytes();
+            stream.write_all(&response).unwrap_or_else(log_write_error);
             return;
         }
     };
 
     let res = api(request);
-    stream.write_all(&mut res.into_bytes()).unwrap();
+    stream.write_all(&res.into_bytes()).unwrap_or_else(log_write_error);
 }
 
 fn html_request(path: &Path, stream: &mut TcpStream) {
-    let time = SystemTime::now();
-
     if path.as_os_str() == "/" {
         let index_path = Path::new("files/index.html");
         let data = fs::read(index_path).unwrap();
@@ -275,16 +271,9 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
             Ok(time) => Some(time),
             Err(_) => None,
         };
-
-        let response = Response {
-            code: 200,
-            content_type: ContentType::Html,
-            modified_date: last_modified,
-            current_time: Some(time),
-            allowed: None,
-            data,
-        }.into_bytes();
-        stream.write_all(&response).unwrap();
+        let response = Response::new_ok(ContentType::Html, last_modified, data)
+            .into_bytes();
+        stream.write_all(&response).unwrap_or_else(log_write_error);
     } else {
         // I Hate paths dear lord wtf is this garbage
         let path = Path::new("files").join(path.strip_prefix("/").unwrap()).with_extension("html");
@@ -296,23 +285,17 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
                     Ok(time) => Some(time),
                     Err(_) => None,
                 };
-                let response = Response {
-                    code: 200,
-                    content_type: ContentType::Html,
-                    modified_date: last_modified,
-                    current_time: Some(time),
-                    allowed: None,
-                    data,
-                }.into_bytes();
-                stream.write_all(&response).unwrap();
+                let response = Response::new_ok(ContentType::Html, last_modified, data)
+                    .into_bytes();
+                stream.write_all(&response).unwrap_or_else(log_write_error);
             },
             Err(_) => {
                 let data = match fs::read("files/404.html") {
                     Ok(data) => data,
                     Err(e) => {
-                        println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(time));
+                        println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
                         let response = Response::empty_500_error().into_bytes();
-                        stream.write_all(&response).unwrap();
+                        stream.write_all(&response).unwrap_or_else(log_write_error);
                         return;
                     }
                 };
@@ -322,22 +305,15 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
                     Err(_) => None,
                 };
 
-                let response = Response {
-                    code: 404,
-                    modified_date,
-                    content_type: ContentType::Html,
-                    current_time: Some(SystemTime::now()),
-                    allowed: None,
-                    data,
-                }.into_bytes();
-                stream.write_all(&response).unwrap();
+                let response = Response::new(404, ContentType::Html, modified_date, None, data)
+                    .into_bytes();
+                stream.write_all(&response).unwrap_or_else(log_write_error)
             }
         }
     }
 }
 
 fn file_request(path: &Path, stream: &mut TcpStream) {
-    let time = SystemTime::now();
     let content_type = match path.extension().and_then(OsStr::to_str) {
         Some("css") => ContentType::Css,
         Some("js") => ContentType::JavaScript,
@@ -346,7 +322,7 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
         ext => {
             println!("Unsuported extention: {:?}", ext);
             let response = Response::new_400_error(HTTPError::InvalidPath).into_bytes();
-            stream.write_all(&response).unwrap();
+            stream.write_all(&response).unwrap_or_else(log_write_error);
             return;
         }
     };
@@ -354,7 +330,7 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
     // paths will single handly kill me
     // also we know path stripping wont fail bc we make sure it starts with one
     let path = Path::new("files").join(path.strip_prefix("/").unwrap());
-    let last_modified_date = match path.metadata().and_then(into_modified) {
+    let modified_date = match path.metadata().and_then(into_modified) {
         Ok(time) => Some(time),
         Err(_) => None,
     };
@@ -363,22 +339,22 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
 
     match fs::read(path) {
         Ok(data) => {
-            let response = Response {
-                code: 200,
-                content_type,
-                current_time: Some(time),
-                modified_date: last_modified_date,
-                allowed: None,
-                data,
-            }.into_bytes();
-            stream.write_all(&response).unwrap();
+            let response = Response::new_ok(content_type, modified_date, data)
+                .into_bytes();
+            stream.write_all(&response).unwrap_or_else(log_write_error)
         },
         Err(_) => {
             let response = Response::empty_404().into_bytes();
-            stream.write_all(&response).unwrap();
+            stream.write_all(&response).unwrap_or_else(log_write_error)
         }
     }
 }
+
+fn log_write_error(error: std::io::Error) {
+    let time = turn_system_time_to_http_date(SystemTime::now());
+    println!("\nError sending response: {error}, occured at: {time}\n")
+}
+
 
 fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request) {
     let path = request.get_path();
