@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::{collections::HashMap, time::Instant, net::SocketAddr};
+use std::{collections::HashMap, time::Instant, net::IpAddr};
 use std::sync::RwLock;
 use crate::types::{Response, Request};
 
@@ -34,7 +34,7 @@ impl Api {
 #[derive(Debug)]
 pub struct ApiRegister {
     apis: HashMap<String, Api>,
-    users: RwLock<HashMap<SocketAddr, User>>,
+    users: RwLock<HashMap<IpAddr, User>>,
 }
 
 impl ApiRegister {
@@ -58,22 +58,22 @@ impl ApiRegister {
         self.apis.get(path)
     }
 
-    pub fn user_exists(&self, ip: &SocketAddr) -> bool {
+    pub fn user_exists(&self, ip: &IpAddr) -> bool {
         let reader = self.users.read().unwrap();
         reader.contains_key(ip)
     }
 
-    pub fn check_limit(&self, ip: &SocketAddr, api_path: &str) -> bool {
+    pub fn check_limit(&self, ip: &IpAddr, api_path: &str) -> bool {
         let mut writer = self.users.write().unwrap();
         writer.get_mut(ip).unwrap().check_limit(api_path)
     }
 
-    pub fn add_request(&self, api_path: &str, user_ip: SocketAddr) {
+    pub fn add_request(&self, api_path: &str, user_ip: IpAddr) {
         let mut writer = self.users.write().unwrap();
         writer.get_mut(&user_ip).unwrap().add_request(api_path);
     }
 
-    pub fn add_user(&self, user_ip: SocketAddr) {
+    pub fn add_user(&self, user_ip: IpAddr) {
         let limits = self.apis.iter()
             .map(|(k, v)| {
                 let (limit, refresh) = v.get_limit_and_refresh();
@@ -88,12 +88,12 @@ impl ApiRegister {
         inserter.insert(user_ip, user);
     }
 
-    fn clean_recent_requests(&self) {
+    pub fn clean_recent_requests(&self) {
         let reader = self.users.read().unwrap();
         let keys_to_remove = reader.iter()
             .filter(|(_, user)| user.get_recent_request_count() == 0)
             .map(|(key, _)| *key)
-            .collect::<Vec<SocketAddr>>();
+            .collect::<Vec<IpAddr>>();
 
         drop(reader);
         let mut inserter = self.users.write().unwrap();
@@ -141,6 +141,7 @@ impl User {
     }
 
     pub fn add_request(&mut self, api_path: &str) {
+        self.limits.get_mut("global").unwrap().add_request(Instant::now());
         self.limits.get_mut(api_path).unwrap().add_request(Instant::now());
     }
 }

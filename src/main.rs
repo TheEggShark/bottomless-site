@@ -1,22 +1,20 @@
 use std::{
     net::{TcpListener, TcpStream},
-    io::{BufReader, BufRead, Write, Read},
+    io::{BufReader, Write, Read},
     fs::{self, Metadata},
     path::Path,
     ffi::OsStr,
-    sync::{Arc, RwLock},
-    time::{SystemTime, Instant},
-    str::FromStr,
-    env,
+    sync::Arc,
+    time::{SystemTime, Instant, Duration},
+    env, thread,
 };
 use website::thread::ThreadPool;
 use website::apis::ApiRegister;
 use website::types::{
     ContentType, RequestType,
-    HTTPRequestLine, Response,
-    HTTPError, turn_system_time_to_http_date,
-    HTTPType, POSTRequest, Request,
-    GETRequest, ImageType,
+    Response, HTTPError,
+    turn_system_time_to_http_date,
+    Request, ImageType,
 };
 use lettre::{transport::smtp::authentication::Credentials, Message, message::Mailbox, Transport};
 use lettre::SmtpTransport;
@@ -25,127 +23,6 @@ use lettre::SmtpTransport;
 // example@example.com
 // password
 const CREDS: &str = include_str!("../secrets");
-
-fn test_api(_: Request) -> Response {
-    println!("Test Api!");
-    let data = String::from("Test api!").into_bytes();
-    Response::new_ok(ContentType::PlainText, None, data)
-}
-
-// takes ~1.6 seconds to send both emails and send a response
-// ~675ms per email so might async or do something to speed this up
-// maybe multithread each email (this is a joke)
-fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
-    let request = match request {
-        Request::GetRequest(_) => {
-            let res = Response::new_405_error("POST");
-            return res;
-        }, //405 error
-        Request::POSTRequest(r) => r,
-    };
-
-    match request.get_content_type() {
-        ContentType::OctetStream => {},
-        _ => {
-            let data = String::from("Unssuported Media Type").into_bytes();
-            return Response::new(415, ContentType::PlainText, None, None, data)
-        }
-    }
-
-    let mut data = BufReader::new(request.get_data());
-    let mut email_len = [0_u8; 1];
-
-    match data.read_exact(&mut email_len) {
-        Err(_) => {
-            return Response::new(
-                400,
-                ContentType::PlainText,
-                None,
-                None,
-                String::from("Email Length Not Found").into_bytes()
-            );
-        }
-        Ok(_) => {},
-    }
-
-    let mut email = vec![0_u8; email_len[0] as usize];
-
-    match data.read_exact(&mut email) {
-        Err(_) => {
-            return Response::new(
-                400,
-                ContentType::PlainText,
-                None,
-                None,
-                String::from("Email Not Found").into_bytes()
-            );
-        }
-        Ok(_) => {},
-    }
-
-    let mut message_len = [0_u8; 2];
-
-    match data.read_exact(&mut message_len) {
-        Err(_) => {
-            return Response::new(
-                400,
-                ContentType::PlainText,
-                None,
-                None,
-                String::from("Message Length Not Found").into_bytes()
-            );
-        }
-        Ok(_) => {},
-    }
-
-    let message_len = u16::from_le_bytes(message_len) as usize;
-    let mut message = vec![0_u8; message_len];
-    match data.read_exact(&mut message) {
-        Err(_) => {
-            return Response::new(
-                400,
-                ContentType::PlainText,
-                None,
-                None,
-                String::from("Message Not Found").into_bytes()
-            );
-        }
-        Ok(_) => {},
-    }
-
-    // send the email!
-    let user_email = String::from_utf8_lossy(&email);
-    let user_message = String::from_utf8_lossy(&message); 
-    let message_to_self = format!("contacter email: {user_email},\n\n{user_message}");
-    let send_to = CREDS.lines().next().unwrap();
-    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
-    let email_to_self = Message::builder()
-        .from("x <example@example.com>".parse().unwrap())
-        .to(self_mailbox)
-        .body(message_to_self)
-        .unwrap();
-    
-    let time = Instant::now();
-    match mailer.send(&email_to_self) {
-        Ok(_) => println!("email send succesfully"),
-        Err(e) => println!("Could not send email: {e:?}"),
-    }
-    println!("{}", time.elapsed().as_millis());
-
-    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
-    let email_to_client = Message::builder()
-        .from(self_mailbox)
-        .to(format!("person <{user_email}>").parse().unwrap())
-        .body("thanks for reaching out I will try to be in contact with you shortly".to_string())
-        .unwrap();
-
-    match mailer.send(&email_to_client) {
-        Ok(_) => println!("email send succesfully"),
-        Err(e) => println!("Could not send email: {e:?}"),
-    }
-
-    Response::empty_ok()
-}
 
 fn main() {
     let mut secrets = CREDS.lines();
@@ -174,6 +51,12 @@ fn main() {
     apis.register_api("/api/test", Box::new(test_api), 6, 360);
     apis.register_api("/api/mail", Box::new(email_api), 6, 360);
     let apis = Arc::new(apis);
+
+    let register = Arc::clone(&apis);
+    let _cleaner = thread::spawn(|| {
+        // every 10mins will clear the registry of users (maybe should do it based on size?)
+        clean_api_register(register);
+    });
 
     for stream in listener.incoming() {
         match stream {
@@ -371,7 +254,18 @@ fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request)
         apis.add_user(request.get_ip());
     }
 
+    if !apis.check_limit(&request.get_ip(), request.get_path()) {
+        // too many requests
+        let data = String::from("Too many requets").into_bytes();
+        let response = Response::new(429, ContentType::PlainText, None, None, data)
+            .into_bytes();
+
+        stream.write_all(&response).unwrap_or_else(log_write_error);
+        return;
+    }
+
     apis.add_request(request.get_path(), request.get_ip());
+
 
     println!("{:?}", apis);
 
@@ -381,10 +275,138 @@ fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request)
         Some(api) => api.run(request),
     };
 
-    stream.write_all(&response.into_bytes()).unwrap();
+    stream.write_all(&response.into_bytes()).unwrap_or_else(log_write_error);
 }
 
 // made to use and_then on results for reading meta data to avoid unsessicary unwrap
 fn into_modified(metadata: Metadata) -> Result<SystemTime, std::io::Error> {
     metadata.modified()
+}
+
+fn clean_api_register(register: Arc<ApiRegister>) -> ! {
+    loop {
+        thread::sleep(Duration::from_secs(1200));
+        register.clean_recent_requests();
+    }
+}
+
+fn test_api(_: Request) -> Response {
+    println!("Test Api!");
+    let data = String::from("Test api!").into_bytes();
+    Response::new_ok(ContentType::PlainText, None, data)
+}
+
+// takes ~1.6 seconds to send both emails and send a response
+// ~675ms per email so might async or do something to speed this up
+// maybe multithread each email (this is a joke)
+fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
+    let request = match request {
+        Request::GetRequest(_) => {
+            let res = Response::new_405_error("POST");
+            return res;
+        }, //405 error
+        Request::POSTRequest(r) => r,
+    };
+
+    match request.get_content_type() {
+        ContentType::OctetStream => {},
+        _ => {
+            let data = String::from("Unssuported Media Type").into_bytes();
+            return Response::new(415, ContentType::PlainText, None, None, data)
+        }
+    }
+
+    let mut data = BufReader::new(request.get_data());
+    let mut email_len = [0_u8; 1];
+
+    match data.read_exact(&mut email_len) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Email Length Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
+    let mut email = vec![0_u8; email_len[0] as usize];
+
+    match data.read_exact(&mut email) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Email Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
+    let mut message_len = [0_u8; 2];
+
+    match data.read_exact(&mut message_len) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Message Length Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
+    let message_len = u16::from_le_bytes(message_len) as usize;
+    let mut message = vec![0_u8; message_len];
+    match data.read_exact(&mut message) {
+        Err(_) => {
+            return Response::new(
+                400,
+                ContentType::PlainText,
+                None,
+                None,
+                String::from("Message Not Found").into_bytes()
+            );
+        }
+        Ok(_) => {},
+    }
+
+    // send the email!
+    let user_email = String::from_utf8_lossy(&email);
+    let user_message = String::from_utf8_lossy(&message); 
+    let message_to_self = format!("contacter email: {user_email},\n\n{user_message}");
+    let send_to = CREDS.lines().next().unwrap();
+    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
+    let email_to_self = Message::builder()
+        .from("x <example@example.com>".parse().unwrap())
+        .to(self_mailbox)
+        .body(message_to_self)
+        .unwrap();
+    
+    let time = Instant::now();
+    match mailer.send(&email_to_self) {
+        Ok(_) => println!("email send succesfully"),
+        Err(e) => println!("Could not send email: {e:?}"),
+    }
+    println!("{}", time.elapsed().as_millis());
+
+    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
+    let email_to_client = Message::builder()
+        .from(self_mailbox)
+        .to(format!("person <{user_email}>").parse().unwrap())
+        .body("thanks for reaching out I will try to be in contact with you shortly".to_string())
+        .unwrap();
+
+    match mailer.send(&email_to_client) {
+        Ok(_) => println!("email send succesfully"),
+        Err(e) => println!("Could not send email: {e:?}"),
+    }
+
+    Response::empty_ok()
 }

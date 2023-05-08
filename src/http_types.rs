@@ -1,4 +1,4 @@
-use std::net::{TcpStream, SocketAddr};
+use std::net::{TcpStream, IpAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::str::FromStr;
 use std::io::{BufReader, BufRead, Read};
@@ -17,6 +17,7 @@ fn make_code(code: u16) -> String {
         404 => String::from("HTTP/1.1 404 NOT FOUND"),
         405 => String::from("HTTP/1.1 405 METHOD NOT ALLOWED"),
         415 => String::from("HTTP/1.1 415 UNSUPPORTED MEDIA TYPE"),
+        429 => String::from("HTTP/1.1 429 TOO MANY REQUESTS"),
         500 => String::from("HTTP/1.1 500 INTERAL SERVER ERROR"),
         _ => unimplemented!(),
     }
@@ -193,8 +194,8 @@ pub enum Request {
 impl Request {
     pub fn new(stream: &mut TcpStream) -> Result<Self, HTTPError> {
         let ip = match stream.peer_addr() {
-            Ok(ip) => ip,
-            Err(e) => {
+            Ok(ip) => ip.ip(),
+            Err(_) => {
                 return Err(HTTPError::FailedToObtainIP)
             }
         };
@@ -234,7 +235,7 @@ impl Request {
         }
     }
 
-    pub fn get_ip(&self) -> SocketAddr {
+    pub fn get_ip(&self) -> IpAddr {
         match self {
             Request::GetRequest(r) => r.ip,
             Request::POSTRequest(r) => r.ip,
@@ -246,14 +247,14 @@ impl Request {
 pub struct POSTRequest {
     path: String,
     host: String,
-    ip: SocketAddr,
+    ip: IpAddr,
     content_type: ContentType,
     content_length: usize,
     content: Vec<u8>,
 }
 
 impl POSTRequest {
-    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>, ip: SocketAddr) -> Result<Self, HTTPError>{
+    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>, ip: IpAddr) -> Result<Self, HTTPError>{
         let path = line.path;
 
         let (header, mut reader) = split_post_request(reader)?;
@@ -357,7 +358,7 @@ fn split_post_request(mut reader: BufReader<&mut TcpStream>) -> Result<(String, 
 #[derive(Debug)]
 pub struct GETRequest {
     pub path: String,
-    ip: SocketAddr,
+    ip: IpAddr,
 }
 
 #[derive(Debug)]
