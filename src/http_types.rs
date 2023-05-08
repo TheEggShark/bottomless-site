@@ -233,6 +233,13 @@ impl Request {
             Request::POSTRequest(r) => &r.path,
         }
     }
+
+    pub fn get_ip(&self) -> SocketAddr {
+        match self {
+            Request::GetRequest(r) => r.ip,
+            Request::POSTRequest(r) => r.ip,
+        }
+    }
 }
 
 #[derive(Debug)]

@@ -4,7 +4,7 @@ use std::{
     fs::{self, Metadata},
     path::Path,
     ffi::OsStr,
-    sync::Arc,
+    sync::{Arc, RwLock},
     time::{SystemTime, Instant},
     str::FromStr,
     env,
@@ -171,8 +171,8 @@ fn main() {
 
     let pool = ThreadPool::new(8);
     let mut apis = ApiRegister::new();
-    apis.register_api("/api/test", Box::new(test_api));
-    apis.register_api("/api/mail", Box::new(email_api));
+    apis.register_api("/api/test", Box::new(test_api), 6, 360);
+    apis.register_api("/api/mail", Box::new(email_api), 6, 360);
     let apis = Arc::new(apis);
 
     for stream in listener.incoming() {
@@ -235,6 +235,12 @@ fn process_get_request(request: Request, apis: Arc<ApiRegister>, stream: &mut Tc
 fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut TcpStream) {
     println!("post!, {:?}", request);
     // should therortically just be an API request
+
+    // check if user is over the limit
+    if apis.user_exists(&request.get_ip()) {
+
+    }
+
     match Path::new(request.get_path()).parent().and_then(Path::to_str) {
         Some("/api") => {},
         Some(_) => {
@@ -250,6 +256,8 @@ fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut T
             return;
         }
     };
+    // mutate always
+
     let api = match apis.get_api(request.get_path()) {
         Some(a) => a,
         None => {
@@ -259,7 +267,7 @@ fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut T
         }
     };
 
-    let res = api(request);
+    let res = api.run(request);
     stream.write_all(&res.into_bytes()).unwrap_or_else(log_write_error);
 }
 
@@ -358,11 +366,19 @@ fn log_write_error(error: std::io::Error) {
 
 fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request) {
     let path = request.get_path();
+    // check if the user is over the limit
+    if !apis.user_exists(&request.get_ip()) {
+        apis.add_user(request.get_ip());
+    }
+
+    apis.add_request(request.get_path(), request.get_ip());
+
+    println!("{:?}", apis);
 
     let api = apis.get_api(path);
     let response = match api {
         None => Response::empty_404(),
-        Some(api) => api(request),
+        Some(api) => api.run(request),
     };
 
     stream.write_all(&response.into_bytes()).unwrap();

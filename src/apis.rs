@@ -1,22 +1,56 @@
+use std::fmt::Debug;
 use std::{collections::HashMap, time::Instant, net::SocketAddr};
+use std::sync::RwLock;
 use crate::types::{Response, Request};
 
-type Api = Box<dyn Fn(Request) -> Response + Send + Sync + 'static>;
+type InnerApi = Box<dyn Fn(Request) -> Response + Send + Sync + 'static>;
 
+
+pub struct Api {
+    inner: InnerApi,
+    limit_count: usize,
+    seconds_till_refresh: u32,
+}
+
+impl Debug for Api {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Api")
+            .field("limit_count", &self.limit_count)
+            .field("seconds_till_refresh", &self.seconds_till_refresh)
+            .finish()
+    }
+}
+
+impl Api {
+    pub fn run(&self, req: Request) -> Response {
+        (self.inner)(req)
+    }
+
+    fn get_limit_and_refresh(&self) -> (usize, u32) {
+        (self.limit_count, self.seconds_till_refresh)
+    }
+}
+
+#[derive(Debug)]
 pub struct ApiRegister {
     apis: HashMap<String, Api>,
-    users: HashMap<SocketAddr, User>,
+    users: RwLock<HashMap<SocketAddr, User>>,
 }
 
 impl ApiRegister {
     pub fn new() -> Self {
         Self {
             apis: HashMap::new(),
-            users: HashMap::new(),
+            users: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn register_api(&mut self, path: &str, api: Api) {
+    pub fn register_api(&mut self, path: &str, inner_api: InnerApi, limit: usize, refresh_timer: u32) {
+        let api = Api {
+            inner: inner_api,
+            limit_count: limit,
+            seconds_till_refresh: refresh_timer,
+        };
         self.apis.insert(path.into(), api);
     }
 
@@ -24,18 +58,53 @@ impl ApiRegister {
         self.apis.get(path)
     }
 
-    fn clean_recent_requests(&mut self) {
-        let keys_to_remove = self.users.iter()
+    pub fn user_exists(&self, ip: &SocketAddr) -> bool {
+        let reader = self.users.read().unwrap();
+        reader.contains_key(ip)
+    }
+
+    pub fn check_limit(&self, ip: &SocketAddr, api_path: &str) -> bool {
+        let mut writer = self.users.write().unwrap();
+        writer.get_mut(ip).unwrap().check_limit(api_path)
+    }
+
+    pub fn add_request(&self, api_path: &str, user_ip: SocketAddr) {
+        let mut writer = self.users.write().unwrap();
+        writer.get_mut(&user_ip).unwrap().add_request(api_path);
+    }
+
+    pub fn add_user(&self, user_ip: SocketAddr) {
+        let limits = self.apis.iter()
+            .map(|(k, v)| {
+                let (limit, refresh) = v.get_limit_and_refresh();
+                (limit,refresh, k.as_str())
+            })
+            .map(|tup| (RateLimiter::new(tup.0, tup.1), tup.2))
+            .collect::<Vec<(RateLimiter, &str)>>();
+
+        let mut user = User::new();
+        user.add_many(limits);
+        let mut inserter = self.users.write().unwrap();
+        inserter.insert(user_ip, user);
+    }
+
+    fn clean_recent_requests(&self) {
+        let reader = self.users.read().unwrap();
+        let keys_to_remove = reader.iter()
             .filter(|(_, user)| user.get_recent_request_count() == 0)
             .map(|(key, _)| *key)
             .collect::<Vec<SocketAddr>>();
 
+        drop(reader);
+        let mut inserter = self.users.write().unwrap();
+
         for key in keys_to_remove {
-            self.users.remove(&key);
+            inserter.remove(&key);
         }
     }
 }
 
+#[derive(Debug)]
 struct User {
     limits: HashMap<String, RateLimiter>,
 }
@@ -50,10 +119,29 @@ impl User {
         }
     }
 
+    pub fn check_limit(&mut self, api_path: &str) -> bool {
+        if !self.limits.get_mut("global").unwrap().check_limit() {
+            return false;
+        }
+
+        return self.limits.get_mut(api_path).unwrap().check_limit();
+    }
+
+    pub fn add_many(&mut self, api_limits: Vec<(RateLimiter, &str)>) {
+        api_limits.into_iter()
+            .for_each(|(value, key)| {
+                self.limits.insert(key.to_string(), value);
+            });
+    }
+
     pub fn get_recent_request_count(&self) -> usize {
         self.limits.iter()
             .map(|(_, limiter)| limiter.get_recent_request_count())
             .sum()
+    }
+
+    pub fn add_request(&mut self, api_path: &str) {
+        self.limits.get_mut(api_path).unwrap().add_request(Instant::now());
     }
 }
 
@@ -64,6 +152,7 @@ impl User {
 // but then I have to wait for 6 seconds
 // to refill my buffer
 
+#[derive(Debug)]
 struct RateLimiter {
     last_requests: Vec<Instant>,
     lockdown_time: Option<Instant>, //store how long untill they can make more requests
