@@ -119,11 +119,6 @@ fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut T
     println!("post!, {:?}", request);
     // should therortically just be an API request
 
-    // check if user is over the limit
-    if apis.user_exists(&request.get_ip()) {
-
-    }
-
     match Path::new(request.get_path()).parent().and_then(Path::to_str) {
         Some("/api") => {},
         Some(_) => {
@@ -139,19 +134,8 @@ fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut T
             return;
         }
     };
-    // mutate always
 
-    let api = match apis.get_api(request.get_path()) {
-        Some(a) => a,
-        None => {
-            let response = Response::empty_404().into_bytes();
-            stream.write_all(&response).unwrap_or_else(log_write_error);
-            return;
-        }
-    };
-
-    let res = api.run(request);
-    stream.write_all(&res.into_bytes()).unwrap_or_else(log_write_error);
+    api_request(apis, stream, request);
 }
 
 fn html_request(path: &Path, stream: &mut TcpStream) {
@@ -265,9 +249,6 @@ fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request)
     }
 
     apis.add_request(request.get_path(), request.get_ip());
-
-
-    println!("{:?}", apis);
 
     let api = apis.get_api(path);
     let response = match api {
