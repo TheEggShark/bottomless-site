@@ -101,6 +101,7 @@ fn process_get_request(request: Request, apis: Arc<ApiRegister>, stream: &mut Tc
                 RequestType::Html
             }
         },
+        Some("/blog") => RequestType::Html, // setting up for the blog folder
         Some("/api") => RequestType::Api,
         None => RequestType::Html, // this is the index.html
         Some(_) => RequestType::OtherFile,
@@ -240,7 +241,7 @@ fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request)
 
     if !apis.check_limit(&request.get_ip(), request.get_path()) {
         // too many requests
-        let data = String::from("Too many requets").into_bytes();
+        let data = String::from("Too many requests").into_bytes();
         let response = Response::new(429, ContentType::PlainText, None, None, data)
             .into_bytes();
 
@@ -267,7 +268,9 @@ fn into_modified(metadata: Metadata) -> Result<SystemTime, std::io::Error> {
 fn clean_api_register(register: Arc<ApiRegister>) -> ! {
     loop {
         thread::sleep(Duration::from_secs(1200));
+        println!("cleaning users...");
         register.clean_recent_requests();
+        println!("done cleaning users!");
     }
 }
 

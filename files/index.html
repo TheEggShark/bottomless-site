@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Charles Crabtree</title>
     <link rel="stylesheet" href="css/index.css">
-    <script src="js/contact.js" defert></script>
+    <script src="js/contact.js" defer></script>
 </head>
 <body>
     <div class="front-page-flex">
@@ -77,7 +77,13 @@
                     <label for="message">Message:</label>
                     <textarea class="message-box" id="message" placeholder="message" name="message"></textarea>
                     <br>
-                    <button class="submit-button" onclick="sendMailApiRequest()">Send Email!</button>
+                    <button class="submit-button" onclick="sendMailApiRequest()" id="mailButton">Send Email!</button>
+                    <div class="circle-trio" style="display: none;" id="loadingDots">
+                        <div class="loading-circle c1"></div>
+                        <div class="loading-circle c2"></div>
+                        <div class="loading-circle c3"></div>
+                    </div>
+                    <p class="failure-text" id="emailText">success!</p>
                 </div>
             </div>
         </div>

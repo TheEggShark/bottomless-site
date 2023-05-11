@@ -153,8 +153,21 @@ html, body {
 
 .message-box:active {
     outline: 0px none transparent;
-    border: none;
-    box-shadow: none;
+    box-shadow: 0 3px 6px 5px #796778;
+    border-bottom: 2px #796778;
+}
+
+.error-highlight {
+    box-shadow: 0 0 9px 1px #FF0A3B;
+}
+
+
+.success-text {
+    color: #52A376;
+}
+
+.failure-text {
+    color: #FF0A3B;
 }
 
 .submit-button {
@@ -165,4 +178,58 @@ html, body {
     width: 100px;
     border-radius: 10px;
     border: none;
+}
+
+.circle-trio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    width: 100;
+}
+
+.loading-circle {
+    background-color: #5D737E;
+    border-radius: 100%;
+    height: 15px;
+    width: 15px;
+}
+
+.c1 {
+    animation: FadeInAndOut1;
+    animation-duration: 3s;
+    animation-iteration-count: infinite;
+}
+
+.c2 {
+    animation: FadeInAndOut2;
+    animation-duration: 3s;
+    animation-iteration-count: infinite;
+}
+
+.c3 {
+    animation: FadeInAndOut3;
+    animation-duration: 3s;
+    animation-iteration-count: infinite;
+}
+
+@keyframes FadeInAndOut1 {
+    0% {opacity: 1;}
+    33% {opacity: 0;}
+    66% {opacity: 0;}
+    100% {opacity: 1;}
+}
+
+@keyframes FadeInAndOut2 {
+    0% {opacity: 0;}
+    33% {opacity: 1;}
+    66% {opacity: 0;}
+    100% {opacity: 0;}
+}
+
+@keyframes FadeInAndOut3 {
+    0% {opacity: 0;}
+    33% {opacity: 0;}
+    66% {opacity: 1;}
+    100% {opacity: 0;}
 }
