@@ -108,7 +108,6 @@ fn process_get_request(request: Request, apis: Arc<ApiRegister>, stream: &mut Tc
     };
     println!("{:?}, {:?}", path, request_type);
 
-
     match request_type {
         RequestType::Html => html_request(path, stream),
         RequestType::OtherFile => file_request(path, stream),
@@ -141,7 +140,7 @@ fn process_post_request(request: Request, apis: Arc<ApiRegister>, stream: &mut T
 
 fn html_request(path: &Path, stream: &mut TcpStream) {
     if path.as_os_str() == "/" {
-        let index_path = Path::new("files/index.html");
+        let index_path = Path::new("website/files/index.html");
         let data = fs::read(index_path).unwrap();
         let last_modified = match index_path.metadata().and_then(into_modified) {
             Ok(time) => Some(time),
@@ -150,41 +149,41 @@ fn html_request(path: &Path, stream: &mut TcpStream) {
         let response = Response::new_ok(ContentType::Html, last_modified, data)
             .into_bytes();
         stream.write_all(&response).unwrap_or_else(log_write_error);
-    } else {
-        // I Hate paths dear lord wtf is this garbage
-        let path = Path::new("files").join(path.strip_prefix("/").unwrap()).with_extension("html");
-        println!("{:?}", path.as_path());
+        return;
+    }
+    // I Hate paths dear lord wtf is this garbage
+    let path = Path::new("website/files").join(path.strip_prefix("/").unwrap()).with_extension("html");
+    println!("{:?}", path.as_path());
 
-        match fs::read(&path) {
-            Ok(data) => {
-                let last_modified = match path.metadata().and_then(into_modified) {
-                    Ok(time) => Some(time),
-                    Err(_) => None,
-                };
-                let response = Response::new_ok(ContentType::Html, last_modified, data)
-                    .into_bytes();
-                stream.write_all(&response).unwrap_or_else(log_write_error);
-            },
-            Err(_) => {
-                let data = match fs::read("files/404.html") {
-                    Ok(data) => data,
-                    Err(e) => {
-                        println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
-                        let response = Response::empty_500_error().into_bytes();
-                        stream.write_all(&response).unwrap_or_else(log_write_error);
-                        return;
-                    }
-                };
+    match fs::read(&path) {
+        Ok(data) => {
+            let last_modified = match path.metadata().and_then(into_modified) {
+                Ok(time) => Some(time),
+                Err(_) => None,
+            };
+            let response = Response::new_ok(ContentType::Html, last_modified, data)
+                .into_bytes();
+            stream.write_all(&response).unwrap_or_else(log_write_error);
+        },
+        Err(_) => {
+            let data = match fs::read("website/files/404.html") {
+                Ok(data) => data,
+                Err(e) => {
+                    println!("Error: {}\n Occured at: {}", e, turn_system_time_to_http_date(SystemTime::now()));
+                    let response = Response::empty_500_error().into_bytes();
+                    stream.write_all(&response).unwrap_or_else(log_write_error);
+                    return;
+                }
+            };
 
-                let modified_date = match Path::new("files/404.html").metadata().and_then(into_modified) {
-                    Ok(m) => Some(m),
-                    Err(_) => None,
-                };
+            let modified_date = match Path::new("files/404.html").metadata().and_then(into_modified) {
+                Ok(m) => Some(m),
+                Err(_) => None,
+            };
 
-                let response = Response::new(404, ContentType::Html, modified_date, None, data)
-                    .into_bytes();
-                stream.write_all(&response).unwrap_or_else(log_write_error)
-            }
+            let response = Response::new(404, ContentType::Html, modified_date, None, data)
+                .into_bytes();
+            stream.write_all(&response).unwrap_or_else(log_write_error)
         }
     }
 }
@@ -205,7 +204,7 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
 
     // paths will single handly kill me
     // also we know path stripping wont fail bc we make sure it starts with one
-    let path = Path::new("files").join(path.strip_prefix("/").unwrap());
+    let path = Path::new("website/files").join(path.strip_prefix("/").unwrap());
     let modified_date = match path.metadata().and_then(into_modified) {
         Ok(time) => Some(time),
         Err(_) => None,
