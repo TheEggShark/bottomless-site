@@ -1,5 +1,8 @@
-use std::time::UNIX_EPOCH;
+mod cbmd;
+
+use std::{fs::OpenOptions, io::Write};
 const UNIX_EPOCH_DAY: u64 = 719_163;
+const UNIX_DAY_JULIAN: u64 = 2440588;
 
 
 fn main() {
@@ -11,34 +14,63 @@ fn main() {
     println!("Give the title of the blog");
     let mut title = String::new();
     std::io::stdin().read_line(&mut title).unwrap();
-    println!("give me the path of the file!");
-    let mut file_path = String::new();
-    std::io::stdin().read_line(&mut file_path).unwrap();
+
     println!("Give the intro words!");
     let mut intro = String::new();
     std::io::stdin().read_line(&mut intro).unwrap();
-    println!("{title}\n{file_path}\n{intro}");
+
+    println!("what is the publish date of the article in mm-dd-yyyy");
+    let mut date = String::new();
+    std::io::stdin().read_line(&mut date).unwrap();
+    let ts = mm_dd_yyyy_since_epoch(&date);
+
+    let mut out_path = String::new();
+    println!("where should the metada be outputed");
+    std::io::stdin().read_line(&mut out_path).unwrap();
+    println!("{title}{intro}{out_path}");
+
+    // serilze time
+    create_file(title.trim(), intro.trim(), &out_path.trim(), ts);
 }
 
-fn file_path_to_seconds_since_epoch(path: &str) -> Result<u64, std::io::Error> {
-    let path = std::path::Path::new(path);
-    let medata_data = path.metadata()?.modified()?;
-    let time_since_epoch = medata_data.duration_since(UNIX_EPOCH)
-        .expect("file before UNIX EPOCH")
-        .as_secs();
+fn create_file(title: &str, intro: &str, path: &str, timestamp: u64) {
+    let t_bytes = title.as_bytes();
+    let t_len = t_bytes.len();
+    assert!(t_len < 256);
+    let i_bytes = intro.as_bytes();
+    let i_len = i_bytes.len();
+    assert!(i_len < 256);
+    let ts_bytes = timestamp.to_le_bytes();
 
-    Ok(time_since_epoch)
+    let mut buffer: Vec<u8> = Vec::with_capacity(t_len + i_len + 8);
+    buffer.push(t_len as u8);
+    buffer.extend_from_slice(t_bytes);
+    buffer.push(i_len as u8);
+    buffer.extend_from_slice(i_bytes);
+    buffer.extend_from_slice(&ts_bytes);
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)
+        .unwrap();
+
+    file.write_all(&buffer).unwrap();
+    file.flush().unwrap();
 }
 
 fn epoch_time_stamp_to_time(timestamp: u64) -> time::Date {
     // found this online just rounded the thing up for rust dont care about
     // second accuracy just need month day year!
     // return ( timestamp / 86400.0 ) + 2440587.5;
-    let julian = (timestamp / 86400) + 2440588;
+    let julian = (timestamp / 86400) + UNIX_DAY_JULIAN;
     time::Date::from_julian_day(julian as i32).unwrap()
 }
 
 fn mm_dd_yyyy_since_epoch(date: &str) -> u64 {
+    let date = date.trim();
+
     let month_day_year = date.split("/")
         .map(|num| num.parse::<i32>())
         .filter(|res| res.is_ok())
@@ -82,31 +114,4 @@ fn mm_dd_yyyy_since_epoch(date: &str) -> u64 {
     let gregorian_day = u64::from(ndays_from_ce as u32);
 
     (gregorian_day - UNIX_EPOCH_DAY) * 86_400
-}
-
-//taken from chrono which was taken from num crate 
-fn div_rem(rhs: u64, other: u64) -> (u64, u64) {
-    (rhs / other, rhs % other)
-}
-
-fn div_floor(rhs: u64, other: u64) -> u64 {
-    // Algorithm from [Daan Leijen. _Division and Modulus for Computer Scientists_,
-    // December 2001](http://research.microsoft.com/pubs/151917/divmodnote-letter.pdf)
-    let (d, r) = div_rem(rhs, other);
-    if (r > 0 && other < 0) || (r < 0 && other > 0) {
-        d - 1
-    } else {
-        d
-    }
-}
-
-fn mod_floor(rhs: u64, other: u64) -> u64 {
-    // Algorithm from [Daan Leijen. _Division and Modulus for Computer Scientists_,
-    // December 2001](http://research.microsoft.com/pubs/151917/divmodnote-letter.pdf)
-    let r = rhs % other;
-    if (r > 0 && other < 0) || (r < 0 && other > 0) {
-        r + other
-    } else {
-        r
-    }
 }
