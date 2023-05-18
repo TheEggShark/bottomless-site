@@ -44,11 +44,19 @@ impl Scanner {
         let char_at_current = self.advance();
 
         match char_at_current {
-            "<" => self.add_token(TokenType::LessThan),
+            "<" => {
+                if self.peek_n(3) == Some("!--") {
+                    self.comment();
+                } else if self.peek() == Some("/") {
+                    self.advance();
+                    self.add_token(TokenType::CloseTag);
+                } else {
+                    self.add_token(TokenType::LessThan);
+                }
+            },
             ">" => self.add_token(TokenType::GreaterThan),
             "=" => self.add_token(TokenType::Equal),
             "!" => self.add_token(TokenType::Bang),
-            "/" => self.add_token(TokenType::Slash),
             "\"" => self.string(),
             "\n" => self.line_number += 1,
             " " | "\r" | "\t" => {}
@@ -90,6 +98,19 @@ impl Scanner {
         }
     }
 
+    fn comment(&mut self) {
+        while self.peek_n(3) != Some("-->") {
+            if self.peek() == Some("\n") {
+                self.line_number += 1;
+            }
+            self.advance();
+        }
+
+        self.advance();
+        self.advance();
+        self.advance();
+    }
+
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len() - 1 || self.end_of_head()
     }
@@ -100,7 +121,7 @@ impl Scanner {
         }
 
         let token_len = self.tokens.len();
-        self.tokens[token_len-2].get_type() == TokenType::Slash && self.tokens[token_len-1].get_type() == TokenType::Head
+        self.tokens[token_len-2].get_type() == TokenType::CloseTag && self.tokens[token_len-1].get_type() == TokenType::Head
     }
 
     fn add_token(&mut self, token_type: TokenType) {
@@ -128,6 +149,14 @@ impl Scanner {
 
         Some(&self.source[self.current..self.current+1])
     }
+
+    fn peek_n(&self, number: usize) -> Option<&str> {
+        if number + self.current >= self.source.len() {
+            return None;
+        }
+
+        Some(&self.source[self.current..self.current+number])
+    }
 }
 
 fn reserved_wrods() -> HashMap<String, TokenType> {
@@ -140,11 +169,12 @@ fn reserved_wrods() -> HashMap<String, TokenType> {
 }
 
 fn is_alphanumeric(input: &str) -> bool {
-    input.chars().all(char::is_alphanumeric)
+    // want to include - for certian atributes
+    input.chars().all(|c| char::is_alphanumeric(c) || c == '-')
 }
 
 fn is_aplha(input: &str) -> bool {
-    input.chars().all(char::is_alphabetic)
+    input.chars().all(|c| char::is_alphabetic(c) || c == '-')
 }
 
 #[derive(Debug)]
@@ -184,7 +214,7 @@ enum TokenType {
     Bang,
     LessThan,
     GreaterThan,
-    Slash,
+    CloseTag,
     Identifier,
     Equal,
     String,
