@@ -1,4 +1,7 @@
 mod cbmd;
+mod parser;
+
+use parser::parse_file;
 
 use std::{fs::OpenOptions, io::Write};
 const UNIX_EPOCH_DAY: u64 = 719_163;
@@ -6,7 +9,6 @@ const UNIX_DAY_JULIAN: u64 = 2440588;
 
 
 fn main() {
-
     let ts = mm_dd_yyyy_since_epoch("08/15/2006");
     epoch_time_stamp_to_time(ts);
 
@@ -31,6 +33,8 @@ fn main() {
 
     // serilze time
     create_file(title.trim(), intro.trim(), &out_path.trim(), ts);
+
+    parse_file("website/files/index.html");
 }
 
 fn create_file(title: &str, intro: &str, path: &str, timestamp: u64) {

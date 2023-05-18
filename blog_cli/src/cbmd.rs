@@ -1,4 +1,5 @@
 //he he he he cat metadata
+use crate::parser;
 
 use std::{fs::{File, OpenOptions}, io::{BufReader, Read, Write}};
 
