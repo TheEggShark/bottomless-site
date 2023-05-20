@@ -9,30 +9,30 @@ const UNIX_DAY_JULIAN: u64 = 2440588;
 
 
 fn main() {
-    let ts = mm_dd_yyyy_since_epoch("08/15/2006");
-    epoch_time_stamp_to_time(ts);
+    // let ts = mm_dd_yyyy_since_epoch("08/15/2006");
+    // epoch_time_stamp_to_time(ts);
 
-    println!("Welcome to Charlies Blog Metadata(.CBMD) creater");
-    println!("Give the title of the blog");
-    let mut title = String::new();
-    std::io::stdin().read_line(&mut title).unwrap();
+    // println!("Welcome to Charlies Blog Metadata(.CBMD) creater");
+    // println!("Give the title of the blog");
+    // let mut title = String::new();
+    // std::io::stdin().read_line(&mut title).unwrap();
 
-    println!("Give the intro words!");
-    let mut intro = String::new();
-    std::io::stdin().read_line(&mut intro).unwrap();
+    // println!("Give the intro words!");
+    // let mut intro = String::new();
+    // std::io::stdin().read_line(&mut intro).unwrap();
 
-    println!("what is the publish date of the article in mm-dd-yyyy");
-    let mut date = String::new();
-    std::io::stdin().read_line(&mut date).unwrap();
-    let ts = mm_dd_yyyy_since_epoch(&date);
+    // println!("what is the publish date of the article in mm-dd-yyyy");
+    // let mut date = String::new();
+    // std::io::stdin().read_line(&mut date).unwrap();
+    // let ts = mm_dd_yyyy_since_epoch(&date);
 
-    let mut out_path = String::new();
-    println!("where should the metada be outputed");
-    std::io::stdin().read_line(&mut out_path).unwrap();
-    println!("{title}{intro}{out_path}");
+    // let mut out_path = String::new();
+    // println!("where should the metada be outputed");
+    // std::io::stdin().read_line(&mut out_path).unwrap();
+    // println!("{title}{intro}{out_path}");
 
-    // serilze time
-    create_file(title.trim(), intro.trim(), &out_path.trim(), ts);
+    // // serilze time
+    // create_file(title.trim(), intro.trim(), &out_path.trim(), ts);
 
     parse_file("website/files/index.html");
 }
