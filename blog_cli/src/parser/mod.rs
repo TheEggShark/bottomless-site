@@ -1,5 +1,5 @@
 mod scanner;
-use scanner::Scanner;
+use scanner::{Scanner, Token, TokenType};
 
 pub fn parse_file(file: &str) {
     //start with < end with >
@@ -9,13 +9,85 @@ pub fn parse_file(file: &str) {
     scanner.scan_tokens();
 
     let res = scanner.extract_source();
-    match res {
-        Ok(_) => {},
-        Err(e) => println!("{:?}", e),
+    let (tokens, source) = match res {
+        Ok(stuff) => {stuff},
+        Err(e) => {
+            println!("{:?}", e);
+            return;
+        },
+    };
+
+    let mut parser = Parser::new(tokens);
+    parser.parse().unwrap();
+}
+
+struct Parser {
+    tokens: Vec<Token>,
+    current: usize,
+}
+
+impl Parser {
+    pub fn new(tokens: Vec<Token>) -> Self {
+        Self {
+            tokens,
+            current: 0
+        }
+    }
+
+    pub fn parse(&mut self) -> Result<Vec<Tag>, ParseError> {
+        //start with doctype
+        let current_token = self.advance();
+        let mut tags = Vec::new();
+
+        while !self.is_at_end() {
+            //parse it up
+        }
+
+        Ok(tags)
+    }
+
+    fn advance(&mut self) -> Token {
+        if !self.is_at_end() {
+            self.current += 1;
+        }
+        self.get_previous()
+    }
+
+    fn peek(&self) -> Token {
+        self.tokens[self.current]
+    }
+
+    fn get_previous(&self) -> Token {
+        self.tokens[self.current-1]
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.peek().get_type() == TokenType::Eof
+    }
+
+    fn matches(&mut self, valid_types: &[TokenType]) -> bool {
+        for token_type in valid_types {
+            if self.check_token_type(*token_type) {
+                self.advance();
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn check_token_type(&self, token_type: TokenType) -> bool {
+        !self.is_at_end() && self.peek().get_type() == token_type
     }
 }
 
-//Grammar is always tag: name atributes Optional-ish<body> Optional-ish<closing>
+#[derive(Debug)]
+enum ParseError {
+    UnexpectedToken,
+}
+
+//Tag -> LessThan Ident Atrributes grater than
+// Atriibutes -> [atrribute]
 // like <link> and <meta>
 struct NonCloseableTag {
     name: String,
@@ -37,7 +109,15 @@ struct Atribute {
     value: String,
 }
 
-
-trait Tag {
-
+enum Tag {
+    CloseableTag {
+        name: String,
+        atrributtes: Vec<Atribute>,
+        content: String,
+        children: Vec<Tag>,
+    },
+    NonCloseableTag {
+        name: String,
+        attributes: Vec<Atribute>,
+    },
 }

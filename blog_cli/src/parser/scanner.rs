@@ -33,6 +33,8 @@ impl Scanner {
             self.scan_token();
         };
 
+        self.add_eof();
+
         self.print_lexemes();
     }
 
@@ -159,6 +161,10 @@ impl Scanner {
         }
     }
 
+    fn add_eof(&mut self) {
+        self.tokens.push(Token::new(0..0, TokenType::Eof, self.line_number, 0));
+    }
+
     fn print_lexemes(&self) {
         for token in self.tokens.iter() {
             print!("{:?}", token);
@@ -218,6 +224,7 @@ fn is_aplha(input: &str) -> bool {
     input.chars().all(|c| char::is_alphabetic(c) || c == '-')
 }
 
+#[derive(Clone, Copy)]
 pub struct Token {
     token_type: TokenType,
     lexeme_start: usize,
@@ -274,6 +281,8 @@ pub enum TokenType {
     Link,
     Script,
     Base,
+    // cope token
+    Eof,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
