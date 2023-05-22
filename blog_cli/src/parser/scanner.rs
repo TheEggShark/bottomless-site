@@ -207,6 +207,7 @@ fn reserved_wrods() -> HashMap<String, TokenType> {
         ("script".to_string(), TokenType::Script),
         ("style".to_string(), TokenType::Style),
         ("base".to_string(), TokenType::Base),
+        ("DOCTYPE".to_string(), TokenType::Doctype),
     ];
 
     reserved_words.into_iter()
@@ -244,6 +245,14 @@ impl Token {
         }
     }
 
+    pub fn get_line_number(&self) -> usize {
+        self.line_number
+    }
+
+    pub fn get_character_pos(&self) -> usize {
+        self.character_pos
+    }
+
     pub fn get_str_representation<'a>(&'a self, source: &'a str) -> &str {
         &source[self.lexeme_start..self.lexeme_end]
     }
@@ -274,6 +283,7 @@ pub enum TokenType {
     Equal,
     String,
     // reserved words
+    Doctype,
     Head,
     Meta,
     Title,

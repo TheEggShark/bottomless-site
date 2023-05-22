@@ -18,7 +18,8 @@ pub fn parse_file(file: &str) {
     };
 
     let mut parser = Parser::new(tokens);
-    parser.parse().unwrap();
+    let tree = parser.parse(source).unwrap();
+    println!("{:?}", tree);
 }
 
 struct Parser {
@@ -34,16 +35,54 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Tag>, ParseError> {
-        //start with doctype
-        let current_token = self.advance();
+    pub fn parse(&mut self, source: String) -> Result<Vec<Tag>, ParseError> {
         let mut tags = Vec::new();
+
+        let first_tag = self.doctype(&source)?;
+        tags.push(first_tag);
 
         while !self.is_at_end() {
             //parse it up
+            break;
         }
 
         Ok(tags)
+    }
+
+    fn tag(&mut self) -> Result<Tag, ParseError> {
+        self.consume(TokenType::LessThan)?;
+        let next_token = self.advance();
+        if !matches!(
+            next_token.get_type(),
+            TokenType::Identifier | TokenType::Head | TokenType::Link | TokenType::Meta |
+            TokenType::Script | TokenType::Style | TokenType::Title
+        ) {
+            Err(ParseError::UnexpectedToken {
+                expected_token: TokenType::Identifier,
+                incorect_token: next_token,
+            })?;
+        }
+
+        todo!()
+    }
+
+    fn doctype(&mut self, source: &str) -> Result<Tag, ParseError> {
+        let start_token = self.consume(TokenType::LessThan)?;
+        self.consume(TokenType::Bang)?;
+        self.consume(TokenType::Doctype)?;
+        let ident = self.consume(TokenType::Identifier)?;
+        if ident.get_str_representation(source) != "html" {
+            Err(ParseError::IncorrectDoctype)?;
+        }
+        self.consume(TokenType::GreaterThan)?;
+        Ok(
+            Tag::NonCloseableTag { 
+                name: "DOCTYPE".to_string(),
+                attributes: Vec::new(),
+                line_number: start_token.get_line_number(),
+                start_char: start_token.get_character_pos(),
+            }
+        )
     }
 
     fn advance(&mut self) -> Token {
@@ -79,45 +118,84 @@ impl Parser {
     fn check_token_type(&self, token_type: TokenType) -> bool {
         !self.is_at_end() && self.peek().get_type() == token_type
     }
+
+    fn consume(&mut self, expected: TokenType) -> Result<Token, ParseError> {
+        if self.check_token_type(expected) {
+            Ok(self.advance())
+        } else {
+            Err(ParseError::UnexpectedToken{
+                expected_token: expected,
+                incorect_token: self.peek(),
+            })
+        }
+    }
 }
 
 #[derive(Debug)]
 enum ParseError {
-    UnexpectedToken,
-}
-
-//Tag -> LessThan Ident Atrributes grater than
-// Atriibutes -> [atrribute]
-// like <link> and <meta>
-struct NonCloseableTag {
-    name: String,
-    attributes: Vec<Atribute>,
-}
-
-// its just <script></script> and <title></title>
-struct CloseableTag {
-    name: String,
-    atrributtes: Vec<Atribute>,
-    content: String 
-    // pretty sure all the tags within the head can contain more children
-    // so we are going with this but we'll see.
+    UnexpectedToken{
+        expected_token: TokenType,
+        incorect_token: Token,
+    },
+    UnterminatedTag,
+    IncorrectDoctype,
 }
 
 // maybe switch to &str but then life times
+#[derive(Debug)]
 struct Atribute {
     name: String,
     value: String,
 }
 
+#[derive(Debug)]
 enum Tag {
+    //Tag -> LessThan Ident Atrributes grater than
+    // Atriibutes -> [atrribute]
+    // like <link> and <meta>
     CloseableTag {
         name: String,
         atrributtes: Vec<Atribute>,
         content: String,
         children: Vec<Tag>,
+        line_number: usize,
+        start_char: usize,
     },
     NonCloseableTag {
         name: String,
         attributes: Vec<Atribute>,
+        line_number: usize,
+        start_char: usize,
     },
+}
+
+enum TagType {
+    Doctype,
+    Head,
+    Meta,
+    Title,
+    Style,
+    Link,
+    Script,
+    Base,
+    Unknown {
+        name: String,
+    }
+}
+
+impl ToString for TagType {
+    fn to_string(&self) -> String {
+        use TagType::*;
+        match self {
+            Doctype => String::from("DOCTYPE"),
+            Head => String::from("head"),
+            Meta => String::from("meta"),
+            Title => String::from("title"),
+            Style => String::from("style"),
+            Link => String::from("link"),
+            Script => String::from("script"),
+            Base => String::from("base"),
+            Unknown { name } => String::from(name),
+        }
+    }
 }
