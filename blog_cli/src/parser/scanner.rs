@@ -63,8 +63,7 @@ impl Scanner {
             "=" => self.add_token(TokenType::Equal),
             "!" => self.add_token(TokenType::Bang),
             "\"" => self.string(),
-            "\n" => self.new_line(1),
-            " " | "\r" | "\t" => {}
+            " " | "\r" | "\t" | "\n" => self.whitespace(),
             _ => {
                 if is_aplha(char_at_current) {
                     self.identifier();
@@ -89,10 +88,9 @@ impl Scanner {
             return;
         }
 
-        self.new_line(lines_to_add);
-
         self.advance(); // consumes the closing "
         self.add_token(TokenType::String);
+        self.new_line(lines_to_add);
     }
 
     fn identifier(&mut self) {
@@ -126,6 +124,19 @@ impl Scanner {
         self.advance();
         self.advance();
         self.advance();
+    }
+
+    fn whitespace(&mut self) {
+        let mut lines_to_add = 0;
+        while self.peek().is_some() && is_white_space(self.peek().unwrap()) {
+            if self.peek() == Some("\n") {
+                lines_to_add += 1;
+            }
+            self.advance();
+        }
+        self.add_token(TokenType::WhiteSpace);
+        // seems like backwards order but bc of its multiline nature this is nessicary
+        self.new_line(lines_to_add);
     }
 
     fn new_line(&mut self, number_of_lines: usize) {
@@ -282,6 +293,9 @@ pub enum TokenType {
     Identifier,
     Equal,
     String,
+    WhiteSpace, // turns out HTML does not ignore whitespace
+    // take the case of <p> lorem < </p> in this case < is written as text
+    // but <p> lorem <sds </p> breaks things and ofc there are expections
     // reserved words
     Doctype,
     Head,
@@ -293,6 +307,10 @@ pub enum TokenType {
     Base,
     // cope token
     Eof,
+}
+
+fn is_white_space(input: &str) -> bool {
+    matches!(input, " " | "\r" | "\t" | "\n")
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
