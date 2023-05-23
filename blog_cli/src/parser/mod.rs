@@ -1,5 +1,5 @@
 mod scanner;
-use scanner::{Scanner, Token, TokenType};
+use scanner::{Scanner, Token, TokenType, IDENTIFER_TOKENS};
 
 pub fn parse_file(file: &str) {
     //start with < end with >
@@ -40,17 +40,18 @@ impl Parser {
 
         let first_tag = self.doctype(&source)?;
         tags.push(first_tag);
-
         while !self.is_at_end() {
             self.skip_white_space();
             //parse it up
-            break;
+            let tag = self.tag(&source)?;
+            //println!("{:?}", tag);
+            tags.push(tag);
         }
 
         Ok(tags)
     }
 
-    fn tag(&mut self, source: &str, parent: Option<&mut Tag>) -> Result<Tag, ParseError> {
+    fn tag(&mut self, source: &str) -> Result<Tag, ParseError> {
         self.consume(TokenType::LessThan)?;
         let next_token = self.advance();
         let next_token_type = next_token.get_type();
@@ -68,6 +69,7 @@ impl Parser {
             })?;
         }
         let mut base_tag = Tag::from_token(next_token, source);
+        println!("{:?}", base_tag);
 
         // add atributes
         // should be ident or >
@@ -88,6 +90,60 @@ impl Parser {
                 })?,
             } 
         }
+
+        if matches!(base_tag, Tag::NonCloseableTag {..}) {
+            return Ok(base_tag)
+        }
+
+        println!("WEEWOOOWEEWOO");
+
+        let mut content = String::new();
+        'child: loop {
+            self.skip_all_text(&mut content, source);
+            let non_text_token = self.peek();
+            // println!("Non_text_token: {:?}", non_text_token);
+            match non_text_token.get_type() {
+                TokenType::CloseTag => {
+                    // goes past the </
+                    self.advance();
+                    let ident = self.consume_identifer_like_token()?;
+                    let ident_name = ident.get_str_representation(source);
+                    let base_tag_name = base_tag.get_name();
+                    if ident_name != base_tag_name {
+                        Err(ParseError::IncorrectTermination {
+                            tag_to_be_closed: base_tag_name.to_string(),
+                            tag_should_be_closed: ident_name.to_string(),
+                        })?;
+                    }
+                    self.consume(TokenType::GreaterThan)?;
+                    base_tag.add_content(&content);
+                    // println!("{:?}", base_tag);
+                    // println!("break terminated: {}", ident_name);
+                    break 'child;
+                },
+                TokenType::LessThan => {
+                    self.advance();
+                    let next = self.peek();
+                    if next.get_type() == TokenType::WhiteSpace {
+                        content.push_str(non_text_token.get_str_representation(source));
+                        content.push_str(next.get_str_representation(source));
+                        continue 'child;
+                    }
+                    //un-consumes the <
+                    self.go_back(1);
+
+                    let child = self.tag(source)?;
+                    base_tag.add_child(child);
+                },
+                TokenType::Eof => {
+                    Err(ParseError::UnterminatedTag)?;
+                }
+                _ => {
+                    unreachable!()
+                }
+            }
+        }
+
 
         // content parsing
         // ignore everything untill < or </
@@ -140,6 +196,13 @@ impl Parser {
         self.get_previous()
     }
 
+    fn go_back(&mut self, amount: usize) {
+        match self.current.checked_sub(amount) {
+            Some(value) => self.current = value,
+            None => self.current = 0,
+        }
+    }
+
     fn peek(&self) -> Token {
         self.tokens[self.current]
     }
@@ -167,12 +230,41 @@ impl Parser {
         }
     }
 
+    fn consume_identifer_like_token(&mut self) -> Result<Token, ParseError> {
+        use TokenType::*;
+        if matches!(
+            self.peek().get_type(),
+            Doctype | Head | Meta | Title | Style |
+            Link | Script | Base | Identifier
+        )  {
+            Ok(self.advance())
+        } else {
+            Err(ParseError::UnexpectedToken {
+                expected_tokens: IDENTIFER_TOKENS.to_vec(),
+                incorect_token: self.peek()
+            })
+        }
+    }
+
     // used in the case of optional white space ofc HTML
     // does not ignore whitespace bc pain
     fn skip_white_space(&mut self) {
         if self.peek().get_type() == TokenType::WhiteSpace {
             self.advance();
         } 
+    }
+
+    fn skip_all_text(&mut self, buffer: &mut String, source: &str) {
+        use TokenType::*;
+        while matches!(
+            self.peek().get_type(),
+            Bang | Identifier | Equal | String | WhiteSpace | Doctype | GreaterThan |
+            Head | Meta | Title | Style | Link | Script | Base | SomethingElse
+        ) {
+            let token = self.advance();
+            let text_of_token = token.get_str_representation(source);
+            buffer.push_str(text_of_token);
+        }
     }
 }
 
@@ -181,6 +273,10 @@ enum ParseError {
     UnexpectedToken{
         expected_tokens: Vec<TokenType>,
         incorect_token: Token,
+    },
+    IncorrectTermination {
+        tag_to_be_closed: String,
+        tag_should_be_closed: String,
     },
     UnterminatedTag,
     IncorrectDoctype,
@@ -230,9 +326,18 @@ impl Tag {
         let name = token.get_str_representation(source).to_string();
         let line_number = token.get_line_number();
         let start_char = token.get_character_pos();
+        println!("{}", name);
         match token_type {
-            Identifier | Head | Script | Style | Title => Tag::new_closeable_tag(name, line_number, start_char),
-            _ => Tag::new_noncloseable_tag(name, line_number, start_char)
+            Head | Script | Style | Title => Tag::new_closeable_tag(name, line_number, start_char),
+            Link | Meta => Tag::new_noncloseable_tag(name, line_number, start_char),
+            Identifier => {
+                if name == "html" {
+                    Tag::new_noncloseable_tag(name, line_number, start_char)
+                } else {
+                    Tag::new_closeable_tag(name, line_number, start_char)
+                }
+            },
+            _ => unreachable!(),
         }
     }
 
@@ -253,6 +358,20 @@ impl Tag {
             attributes: Vec::new(),
             line_number,
             start_char,
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            Self::CloseableTag { name, ..} => name,
+            Self::NonCloseableTag { name, ..} => name,
+        }
+    }
+
+    pub(crate) fn add_content(&mut self, new_content: &str) {
+        match self {
+            Self::CloseableTag {content, ..} => content.push_str(new_content),
+            Self::NonCloseableTag { .. } => panic!("Trying to add content to NonCloseableTag")
         }
     }
 

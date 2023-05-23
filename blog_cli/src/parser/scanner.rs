@@ -65,10 +65,15 @@ impl Scanner {
             "\"" => self.string(),
             " " | "\r" | "\t" | "\n" => self.whitespace(),
             _ => {
-                if is_aplha(char_at_current) {
+                if is_alpha(char_at_current) {
                     self.identifier();
-                } else {
-                    self.advance();
+                }
+                else {
+                    // Like in a <p> there could be a '.' or a digit
+                    // and like its not invalid but just adding special rules would
+                    // be very annyoing? does this make everything much slower, 
+                    // probably
+                    self.add_token(TokenType::SomethingElse);
                 }
             }
         }
@@ -151,12 +156,13 @@ impl Scanner {
     }
 
     fn end_of_head(&self) -> bool {
-        if self.tokens.len() < 2{
+        if self.tokens.len() < 3 {
             return false;
         }
 
         let token_len = self.tokens.len();
-        self.tokens[token_len-2].get_type() == TokenType::CloseTag && self.tokens[token_len-1].get_type() == TokenType::Head
+        self.tokens[token_len-3].get_type() == TokenType::CloseTag && self.tokens[token_len-2].get_type() == TokenType::Head &&
+        self.tokens[token_len-1].get_type() == TokenType::GreaterThan
     }
 
     fn add_token(&mut self, token_type: TokenType) {
@@ -232,7 +238,7 @@ fn is_alphanumeric(input: &str) -> bool {
     input.chars().all(|c| char::is_alphanumeric(c) || c == '-')
 }
 
-fn is_aplha(input: &str) -> bool {
+fn is_alpha(input: &str) -> bool {
     input.chars().all(|c| char::is_alphabetic(c) || c == '-')
 }
 
@@ -305,9 +311,15 @@ pub enum TokenType {
     Link,
     Script,
     Base,
-    // cope token
+    // cope tokens
+    SomethingElse,
     Eof,
 }
+
+pub(crate) const IDENTIFER_TOKENS: [TokenType; 9] = [
+    TokenType::Doctype, TokenType::Head, TokenType::Meta, TokenType::Title, TokenType::Style,
+    TokenType::Link, TokenType::Script, TokenType::Base, TokenType::Identifier
+];
 
 fn is_white_space(input: &str) -> bool {
     matches!(input, " " | "\r" | "\t" | "\n")
