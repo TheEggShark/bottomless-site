@@ -34,8 +34,6 @@ impl Scanner {
         };
 
         self.add_eof();
-
-        self.print_lexemes();
     }
 
     pub fn extract_source(self) -> Result<(Vec<Token>, String), LexicalError> {
@@ -46,7 +44,10 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) {
+        let peek = self.peek();
+        print!("peek {:?} ", peek);
         let char_at_current = self.advance();
+        println!("{:?}", char_at_current);
 
         match char_at_current {
             "<" => {
@@ -62,8 +63,12 @@ impl Scanner {
             ">" => self.add_token(TokenType::GreaterThan),
             "=" => self.add_token(TokenType::Equal),
             "!" => self.add_token(TokenType::Bang),
+            "/" => self.add_token(TokenType::ForwardSlash),
             "\"" => self.string(),
-            " " | "\r" | "\t" | "\n" => self.whitespace(),
+            " " | "\r" | "\t" | "\n" => {
+                println!("inside white space arm: {:?}", char_at_current);
+                self.whitespace();
+            },
             _ => {
                 if is_alpha(char_at_current) {
                     self.identifier();
@@ -133,12 +138,20 @@ impl Scanner {
 
     fn whitespace(&mut self) {
         let mut lines_to_add = 0;
+        print!("inside whitespace loop: {:?} ", self.peek());
+
+        if self.peek_previous() == Some("\n") {
+            lines_to_add += 1;
+        }
+
         while self.peek().is_some() && is_white_space(self.peek().unwrap()) {
+            print!("peek: {:?} ", self.peek());
             if self.peek() == Some("\n") {
                 lines_to_add += 1;
             }
             self.advance();
         }
+        println!("end of loop");
         self.add_token(TokenType::WhiteSpace);
         // seems like backwards order but bc of its multiline nature this is nessicary
         self.new_line(lines_to_add);
@@ -152,17 +165,7 @@ impl Scanner {
     }
 
     fn is_at_end(&self) -> bool {
-        self.current >= self.source.len() - 1 || self.end_of_head()
-    }
-
-    fn end_of_head(&self) -> bool {
-        if self.tokens.len() < 3 {
-            return false;
-        }
-
-        let token_len = self.tokens.len();
-        self.tokens[token_len-3].get_type() == TokenType::CloseTag && self.tokens[token_len-2].get_type() == TokenType::Head &&
-        self.tokens[token_len-1].get_type() == TokenType::GreaterThan
+        self.current >= self.source.len()
     }
 
     fn add_token(&mut self, token_type: TokenType) {
@@ -182,7 +185,7 @@ impl Scanner {
         self.tokens.push(Token::new(0..0, TokenType::Eof, self.line_number, 0));
     }
 
-    fn print_lexemes(&self) {
+    pub fn print_lexemes(&self) {
         for token in self.tokens.iter() {
             print!("{:?}", token);
             println!("{}", token.get_str_representation(&self.source));
@@ -204,6 +207,13 @@ impl Scanner {
         Some(&self.source[self.current..self.current+1])
     }
 
+    fn peek_previous(&self) -> Option<&str> {
+        match self.current.checked_sub(1) {
+            Some(value) => Some(&self.source[value..value+1]),
+            None => None
+        }
+    }
+
     fn peek_n(&self, number: usize) -> Option<&str> {
         if number + self.current >= self.source.len() {
             return None;
@@ -216,14 +226,25 @@ impl Scanner {
 fn reserved_wrods() -> HashMap<String, TokenType> {
     let mut map = HashMap::new();
 
+    // TokenType::Area, TokenType::Base, TokenType::Br, TokenType::Col, TokenType::Embed,
+    // TokenType::Hr, TokenType::Img, TokenType::Input, TokenType::Link, TokenType::Meta,
+    // TokenType::Param, TokenType::Source, TokenType::Track, TokenType::Wbr, TokenType::Identifier
+
     let reserved_words = [
-        ("head".to_string(), TokenType::Head),
-        ("meta".to_string(), TokenType::Meta),
-        ("title".to_string(), TokenType::Title),
-        ("link".to_string(), TokenType::Link),
-        ("script".to_string(), TokenType::Script),
-        ("style".to_string(), TokenType::Style),
+        ("area".to_string(), TokenType::Area),
         ("base".to_string(), TokenType::Base),
+        ("br".to_string(), TokenType::Br),
+        ("col".to_string(), TokenType::Col),
+        ("embed".to_string(), TokenType::Embed),
+        ("hr".to_string(), TokenType::Hr),
+        ("img".to_string(), TokenType::Img),
+        ("input".to_string(), TokenType::Input),
+        ("link".to_string(), TokenType::Link),
+        ("meta".to_string(), TokenType::Meta),
+        ("param".to_string(), TokenType::Param),
+        ("source".to_string(), TokenType::Source),
+        ("track".to_string(), TokenType::Track),
+        ("wbr".to_string(), TokenType::Wbr),
         ("DOCTYPE".to_string(), TokenType::Doctype),
     ];
 
@@ -231,6 +252,10 @@ fn reserved_wrods() -> HashMap<String, TokenType> {
         .for_each(|(k,v)| { map.insert(k, v); });
     
     map
+}
+
+pub fn is_white_space(input: &str) -> bool {
+    matches!(input, " " | "\r" | "\t" | "\n")
 }
 
 fn is_alphanumeric(input: &str) -> bool {
@@ -277,6 +302,15 @@ impl Token {
     pub fn get_type(&self) -> TokenType {
         self.token_type
     }
+
+    pub fn is_identifier(&self) -> bool {
+        use TokenType::*;
+        matches!(
+            self.token_type,
+            Area | Base | Br | Col | Embed | Hr | Img | Input |
+            Link | Meta | Param | Source | Track | Wbr | Identifier
+        )
+    }
 }
 
 impl std::fmt::Debug for Token {
@@ -299,31 +333,37 @@ pub enum TokenType {
     Identifier,
     Equal,
     String,
+    ForwardSlash,
     WhiteSpace, // turns out HTML does not ignore whitespace
     // take the case of <p> lorem < </p> in this case < is written as text
     // but <p> lorem <sds </p> breaks things and ofc there are expections
-    // reserved words
+    // reserved words mostlity consists of all self closing tags used later 
+    // for parser
     Doctype,
-    Head,
-    Meta,
-    Title,
-    Style,
-    Link,
-    Script,
+    Area,
     Base,
+    Br,
+    Col,
+    Embed,
+    Hr,
+    Img,
+    Input,
+    Link,
+    Meta,
+    Param,
+    Source,
+    Track,
+    Wbr,
     // cope tokens
     SomethingElse,
     Eof,
 }
 
-pub(crate) const IDENTIFER_TOKENS: [TokenType; 9] = [
-    TokenType::Doctype, TokenType::Head, TokenType::Meta, TokenType::Title, TokenType::Style,
-    TokenType::Link, TokenType::Script, TokenType::Base, TokenType::Identifier
+pub(crate) const IDENTIFER_TOKENS: [TokenType; 15] = [
+    TokenType::Area, TokenType::Base, TokenType::Br, TokenType::Col, TokenType::Embed,
+    TokenType::Hr, TokenType::Img, TokenType::Input, TokenType::Link, TokenType::Meta,
+    TokenType::Param, TokenType::Source, TokenType::Track, TokenType::Wbr, TokenType::Identifier
 ];
-
-fn is_white_space(input: &str) -> bool {
-    matches!(input, " " | "\r" | "\t" | "\n")
-}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LexicalError {
