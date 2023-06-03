@@ -1,9 +1,8 @@
-use html_parser::{parse_file, flaten_tree};
-use html_parser::tag::IterTag;
+mod cbmd;
+use cbmd::Cbmd;
 
 use std::{fs::OpenOptions, io::Write};
 const UNIX_EPOCH_DAY: u64 = 719_163;
-const UNIX_DAY_JULIAN: u64 = 2440588;
 
 
 fn main() {
@@ -32,15 +31,8 @@ fn main() {
     // // serilze time
     // create_file(title.trim(), intro.trim(), &out_path.trim(), ts);
 
-    let tag_tree = parse_file("website/files/index.html").unwrap();
-    let meta_tags = flaten_tree(tag_tree)
-        .into_iter()
-        .filter(|t| t.get_name() == "meta")
-        .collect::<Vec<IterTag>>();
-
-    for tag in meta_tags {
-        println!("{:?}", tag);
-    }
+    let data = Cbmd::from_html_file("website/files/blog/fake.html").unwrap();
+    println!("{}", data.format_date());
 }
 
 fn create_file(title: &str, intro: &str, path: &str, timestamp: u64) {
@@ -68,14 +60,6 @@ fn create_file(title: &str, intro: &str, path: &str, timestamp: u64) {
 
     file.write_all(&buffer).unwrap();
     file.flush().unwrap();
-}
-
-fn epoch_time_stamp_to_time(timestamp: u64) -> time::Date {
-    // found this online just rounded the thing up for rust dont care about
-    // second accuracy just need month day year!
-    // return ( timestamp / 86400.0 ) + 2440587.5;
-    let julian = (timestamp / 86400) + UNIX_DAY_JULIAN;
-    time::Date::from_julian_day(julian as i32).unwrap()
 }
 
 fn mm_dd_yyyy_since_epoch(date: &str) -> u64 {

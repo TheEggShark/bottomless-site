@@ -1,6 +1,7 @@
 use super::scanner::{Token, TokenType, IDENTIFER_TOKENS};
-use super::tag::{Attribute, Tag};
+use super::tag::Tag;
 
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::error::Error;
 
@@ -51,8 +52,8 @@ impl Parser {
             let next_token = self.advance();
             match next_token.get_type() {
                 TokenType::Identifier => {
-                    let attribute = self.attribute(next_token, source)?;
-                    base_tag.add_attribute(attribute);
+                    let (name, value) = self.attribute(next_token, source)?;
+                    base_tag.insert_attribute(name, value);
                 }
                 TokenType::ForwardSlash => {
                     // gotta love HTML optional / 
@@ -151,14 +152,14 @@ impl Parser {
         Ok(
             Tag::NonCloseableTag { 
                 name: "DOCTYPE".to_string(),
-                attributes: Vec::new(),
+                attributes: HashMap::new(),
                 line_number: start_token.get_line_number(),
                 start_char: start_token.get_character_pos(),
             }
         )
     }
 
-    fn attribute(&mut self, ident: Token, source: &str) -> Result<Attribute, ParseError> {
+    fn attribute(&mut self, ident: Token, source: &str) -> Result<(String, Option<String>), ParseError> {
         self.skip_white_space();
         //could be '=' or nothing could advance?
         let name = ident.get_str_representation(source).to_string();
@@ -169,9 +170,9 @@ impl Parser {
             let value = self.consume(TokenType::String)?
                 .get_str_representation(source)
                 .to_string();
-            Ok(Attribute::new(name, Some(value)))
+            Ok((name, Some(value)))
         } else {
-            Ok(Attribute::new(name, None))
+            Ok((name, None))
         }
     }
 

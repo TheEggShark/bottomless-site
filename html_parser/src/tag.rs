@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::scanner::{Token, TokenType};
 
 #[derive(Debug)]
@@ -7,7 +9,7 @@ pub enum Tag {
     // like <link> and <meta>
     CloseableTag {
         name: String,
-        attributes: Vec<Attribute>,
+        attributes: HashMap<String, Option<String>>,
         content: String,
         children: Vec<Tag>,
         line_number: usize,
@@ -15,7 +17,7 @@ pub enum Tag {
     },
     NonCloseableTag {
         name: String,
-        attributes: Vec<Attribute>,
+        attributes: HashMap<String, Option<String>>,
         line_number: usize,
         start_char: usize,
     },
@@ -24,14 +26,14 @@ pub enum Tag {
 #[derive(Debug)]
 pub struct IterTag {
     name: String,
-    attributes: Vec<Attribute>,
+    attributes: HashMap<String, Option<String>>,
     content: Option<String>,
     line_number: usize,
     start_char: usize,
 }
 
 impl IterTag {
-    pub fn new(name: String, attributes: Vec<Attribute>, content: Option<String>, ln: usize, sc: usize) -> Self {
+    pub fn new(name: String, attributes: HashMap<String, Option<String>>, content: Option<String>, ln: usize, sc: usize) -> Self {
         Self {
             name,
             attributes,
@@ -45,10 +47,6 @@ impl IterTag {
         &self.name
     }
 
-    pub fn get_attributes(&self) -> &[Attribute] {
-        &self.attributes
-    }
-
     pub fn get_content(&self) -> &Option<String> {
         &self.content
     }
@@ -59,6 +57,10 @@ impl IterTag {
 
     pub fn get_start_char(&self) -> usize {
         self.start_char
+    }
+
+    pub fn get_attribute(&self, name: &str) -> &Option<String> {
+        self.attributes.get(name).unwrap_or(&None)
     }
 }
 
@@ -81,7 +83,7 @@ impl Tag {
     pub fn new_closeable_tag(name: String, line_number: usize, start_char: usize) -> Self {
         Self::CloseableTag {
             name,
-            attributes: Vec::new(),
+            attributes: HashMap::new(),
             content: String::new(),
             children: Vec::new(),
             line_number,
@@ -92,7 +94,7 @@ impl Tag {
     pub fn new_noncloseable_tag(name: String, line_number: usize, start_char: usize) -> Self {
         Self::NonCloseableTag {
             name,
-            attributes: Vec::new(),
+            attributes: HashMap::new(),
             line_number,
             start_char,
         }
@@ -105,7 +107,7 @@ impl Tag {
         }
     }
 
-    pub fn get_attributes(&self) -> &[Attribute] {
+    pub fn get_attributes(&self) -> &HashMap<String, Option<String>> {
         match self {
             Self::CloseableTag { attributes, .. } => attributes,
             Self::NonCloseableTag { attributes, .. } => attributes,
@@ -140,11 +142,11 @@ impl Tag {
         }
     }
 
-    pub fn add_attribute(&mut self, attribute: Attribute) {
+    pub fn insert_attribute(&mut self, name: String, value: Option<String>) {
         match self {
-            Self::NonCloseableTag {attributes, ..} => attributes.push(attribute),
-            Self::CloseableTag {attributes, ..} => attributes.push(attribute),
-        }
+            Self::NonCloseableTag {attributes, ..} => attributes.insert(name, value),
+            Self::CloseableTag {attributes, ..} => attributes.insert(name, value),
+        };
     }
 
     pub fn add_child(&mut self, child: Self) {
@@ -166,10 +168,10 @@ impl Tag {
         add_tabs(depth+1, &mut text);
 
         text.push_str("Attributes: [\n");
-        for attribute in self.get_attributes() {
+        for (name, value) in self.get_attributes() {
             add_tabs(depth+2, &mut text);
-            text.push_str(&attribute.name);
-            match &attribute.value {
+            text.push_str(name);
+            match value {
                 Some(val) => {
                     let attribute_text = format!("={},", val);
                     text.push_str(&attribute_text);
@@ -238,21 +240,6 @@ impl Tag {
 fn add_tabs(num_of_tabs: usize, text: &mut String) {
     for _ in 0..num_of_tabs {
         text.push_str("   ");
-    }
-}
-
-#[derive(Debug)]
-pub struct Attribute {
-    name: String,
-    value: Option<String>,
-}
-
-impl Attribute {
-    pub fn new(name: String, value: Option<String>) -> Self {
-        Self {
-            name,
-            value,
-        }
     }
 }
 
