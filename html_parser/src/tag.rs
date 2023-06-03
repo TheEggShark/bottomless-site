@@ -21,6 +21,47 @@ pub enum Tag {
     },
 }
 
+#[derive(Debug)]
+pub struct IterTag {
+    name: String,
+    attributes: Vec<Attribute>,
+    content: Option<String>,
+    line_number: usize,
+    start_char: usize,
+}
+
+impl IterTag {
+    pub fn new(name: String, attributes: Vec<Attribute>, content: Option<String>, ln: usize, sc: usize) -> Self {
+        Self {
+            name,
+            attributes,
+            content,
+            line_number: ln,
+            start_char: sc,
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn get_attributes(&self) -> &[Attribute] {
+        &self.attributes
+    }
+
+    pub fn get_content(&self) -> &Option<String> {
+        &self.content
+    }
+
+    pub fn get_line_number(&self) -> usize {
+        self.line_number
+    }
+
+    pub fn get_start_char(&self) -> usize {
+        self.start_char
+    }
+}
+
 impl Tag {
     pub fn from_token(token: Token, source: &str) -> Self {
         use TokenType::*;
@@ -68,6 +109,20 @@ impl Tag {
         match self {
             Self::CloseableTag { attributes, .. } => attributes,
             Self::NonCloseableTag { attributes, .. } => attributes,
+        }
+    }
+
+    pub fn get_line_number(&self) -> usize {
+        match self {
+            Self::CloseableTag { line_number, ..} => *line_number,
+            Self::NonCloseableTag { line_number, ..} => *line_number,
+        }
+    }
+
+    pub fn get_character_pos(&self) -> usize {
+        match self {
+            Self::CloseableTag { start_char, ..} => *start_char,
+            Self::NonCloseableTag { start_char, ..} => *start_char,
         }
     }
 
@@ -158,12 +213,6 @@ impl Tag {
         }
     }
 
-    pub fn print_content(&self) {
-        match self {
-            Self::CloseableTag { content, ..} => println!("{}", content),
-            Self::NonCloseableTag { .. } => {}
-        }
-    }
 
     pub fn clean_content(&mut self) {
         match self {

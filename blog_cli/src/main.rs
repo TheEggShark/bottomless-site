@@ -1,7 +1,5 @@
-mod cbmd;
-mod parser;
-
-use parser::parse_file;
+use html_parser::{parse_file, flaten_tree};
+use html_parser::tag::IterTag;
 
 use std::{fs::OpenOptions, io::Write};
 const UNIX_EPOCH_DAY: u64 = 719_163;
@@ -34,7 +32,15 @@ fn main() {
     // // serilze time
     // create_file(title.trim(), intro.trim(), &out_path.trim(), ts);
 
-    parse_file("website/files/index.html");
+    let tag_tree = parse_file("website/files/index.html").unwrap();
+    let meta_tags = flaten_tree(tag_tree)
+        .into_iter()
+        .filter(|t| t.get_name() == "meta")
+        .collect::<Vec<IterTag>>();
+
+    for tag in meta_tags {
+        println!("{:?}", tag);
+    }
 }
 
 fn create_file(title: &str, intro: &str, path: &str, timestamp: u64) {

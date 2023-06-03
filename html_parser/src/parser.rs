@@ -1,6 +1,9 @@
 use super::scanner::{Token, TokenType, IDENTIFER_TOKENS};
 use super::tag::{Attribute, Tag};
 
+use std::fmt::Display;
+use std::error::Error;
+
 pub(crate) struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -92,6 +95,8 @@ impl Parser {
                     if ident_name != base_tag_name {
                         Err(ParseError::IncorrectTermination {
                             tag_to_be_closed: base_tag_name.to_string(),
+                            tag_to_be_closed_char_pos: ident.get_character_pos(),
+                            tag_to_be_closed_line_number: ident.get_line_number(),
                             tag_should_be_closed: ident_name.to_string(),
                         })?;
                     }
@@ -115,7 +120,11 @@ impl Parser {
                     base_tag.add_child(child);
                 },
                 TokenType::Eof => {
-                    Err(ParseError::UnterminatedTag)?;
+                    Err(ParseError::UnterminatedTag {
+                        unclosed_tag: base_tag.get_name().to_string(),
+                        unclosed_line_number: base_tag.get_line_number(),
+                        unclosed_char_pos: base_tag.get_character_pos(),
+                    })?;
                 }
                 _ => {
                     unreachable!()
@@ -249,8 +258,67 @@ pub enum ParseError {
     },
     IncorrectTermination {
         tag_to_be_closed: String,
+        tag_to_be_closed_line_number: usize,
+        tag_to_be_closed_char_pos: usize,
         tag_should_be_closed: String,
     },
-    UnterminatedTag,
+    UnterminatedTag {
+        unclosed_tag: String,
+        unclosed_line_number: usize,
+        unclosed_char_pos: usize,
+    },
     IncorrectDoctype,
+}
+
+impl Error for ParseError {
+    
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedToken { expected_tokens, incorect_token } => {
+                let mut string = String::from("expected: ");
+
+                for token_type in expected_tokens {
+                    let s = format!("{} ", token_type);
+                    string.push_str(&s);
+                }
+
+                string.push_str("found: ");
+                let ic_text = format!("{}, at line: {} char: {}", incorect_token.get_type(), incorect_token.get_line_number(), incorect_token.get_character_pos());
+                string.push_str(&ic_text);
+
+                write!(f, "{}", string)
+            }
+            Self::IncorrectTermination {
+                tag_to_be_closed,
+                tag_to_be_closed_char_pos,
+                tag_to_be_closed_line_number,
+                tag_should_be_closed,
+            } => {
+                write!(f,
+                    "{} tag improperly closed found {} tag at line: {}, char: {}",
+                    tag_to_be_closed,
+                    tag_should_be_closed,
+                    tag_to_be_closed_line_number,
+                    tag_to_be_closed_char_pos,
+                )
+            },
+            Self::UnterminatedTag {
+                unclosed_tag,
+                unclosed_line_number,
+                unclosed_char_pos,
+            } => {
+                write!(
+                    f,
+                    "Unterminated {} tag at line number: {} char pos: {}",
+                    unclosed_tag,
+                    unclosed_line_number,
+                    unclosed_char_pos,
+                )
+            }
+            Self::IncorrectDoctype => write!(f, "DOCTYPE tag did not contain HTML")
+        }
+    }
 }

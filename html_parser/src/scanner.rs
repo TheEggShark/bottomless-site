@@ -1,4 +1,6 @@
 use std::{ops::Range, collections::HashMap};
+use std::fmt::Display;
+use std::error::Error;
 
 pub struct Scanner {
     source: String,
@@ -44,10 +46,7 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) {
-        let peek = self.peek();
-        print!("peek {:?} ", peek);
         let char_at_current = self.advance();
-        println!("{:?}", char_at_current);
 
         match char_at_current {
             "<" => {
@@ -65,10 +64,7 @@ impl Scanner {
             "!" => self.add_token(TokenType::Bang),
             "/" => self.add_token(TokenType::ForwardSlash),
             "\"" => self.string(),
-            " " | "\r" | "\t" | "\n" => {
-                println!("inside white space arm: {:?}", char_at_current);
-                self.whitespace();
-            },
+            " " | "\r" | "\t" | "\n" => self.whitespace(),
             _ => {
                 if is_alpha(char_at_current) {
                     self.identifier();
@@ -138,20 +134,18 @@ impl Scanner {
 
     fn whitespace(&mut self) {
         let mut lines_to_add = 0;
-        print!("inside whitespace loop: {:?} ", self.peek());
 
         if self.peek_previous() == Some("\n") {
             lines_to_add += 1;
         }
 
         while self.peek().is_some() && is_white_space(self.peek().unwrap()) {
-            print!("peek: {:?} ", self.peek());
             if self.peek() == Some("\n") {
                 lines_to_add += 1;
             }
             self.advance();
         }
-        println!("end of loop");
+
         self.add_token(TokenType::WhiteSpace);
         // seems like backwards order but bc of its multiline nature this is nessicary
         self.new_line(lines_to_add);
@@ -183,13 +177,6 @@ impl Scanner {
 
     fn add_eof(&mut self) {
         self.tokens.push(Token::new(0..0, TokenType::Eof, self.line_number, 0));
-    }
-
-    pub fn print_lexemes(&self) {
-        for token in self.tokens.iter() {
-            print!("{:?}", token);
-            println!("{}", token.get_str_representation(&self.source));
-        }
     }
 
     fn advance(&mut self) -> &str {
@@ -359,6 +346,39 @@ pub enum TokenType {
     Eof,
 }
 
+impl Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bang => write!(f, "!"),
+            Self::LessThan => write!(f, "<"),
+            Self::GreaterThan => write!(f, ">"),
+            Self::CloseTag => write!(f, "/>"),
+            Self::Identifier => write!(f, "Identifier"),
+            Self::Equal => write!(f, "="),
+            Self::String => write!(f, "String"),
+            Self::ForwardSlash => write!(f, "/"),
+            Self::WhiteSpace => write!(f, "WhiteSpace"),
+            Self::Doctype => write!(f, "Doctype"),
+            Self::Area => write!(f, "area"),
+            Self::Base => write!(f, "base"),
+            Self::Br => write!(f, "br"),
+            Self::Col => write!(f, "col"),
+            Self::Embed => write!(f, "embed"),
+            Self::Hr => write!(f, "hr"),
+            Self::Img => write!(f, "img"),
+            Self::Input => write!(f, "input"),
+            Self::Link => write!(f, "link"),
+            Self::Meta => write!(f, "meta"),
+            Self::Param => write!(f, "param"),
+            Self::Source => write!(f, "source"),
+            Self::Track => write!(f, "track"),
+            Self::Wbr => write!(f, "wbr"),
+            Self::SomethingElse => write!(f, "text"),
+            Self::Eof => write!(f, "End of File"),
+        }
+    }
+}
+
 pub(crate) const IDENTIFER_TOKENS: [TokenType; 15] = [
     TokenType::Area, TokenType::Base, TokenType::Br, TokenType::Col, TokenType::Embed,
     TokenType::Hr, TokenType::Img, TokenType::Input, TokenType::Link, TokenType::Meta,
@@ -369,4 +389,17 @@ pub(crate) const IDENTIFER_TOKENS: [TokenType; 15] = [
 pub enum LexicalError {
     UnterminatedString(usize),
     UnterminatedComment(usize),
+}
+
+impl Display for LexicalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnterminatedComment(num) => write!(f, "Unterminated comment at line: {}", num),
+            Self::UnterminatedString(num) => write!(f, "Uniterminated comment at line: {}", num),
+        }
+    }
+}
+
+impl Error for LexicalError {
+    
 }

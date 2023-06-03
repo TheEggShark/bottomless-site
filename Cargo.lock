@@ -24,6 +24,7 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 name = "blog_cli"
 version = "0.1.0"
 dependencies = [
+ "html_parser",
  "time",
 ]
 
@@ -165,6 +166,10 @@ dependencies = [
  "match_cfg",
  "winapi",
 ]
+
+[[package]]
+name = "html_parser"
+version = "0.1.0"
 
 [[package]]
 name = "httpdate"
