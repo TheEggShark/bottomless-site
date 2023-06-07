@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+// use std::fmt::Result;
 use std::net::{TcpStream, IpAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::str::FromStr;
@@ -223,7 +225,7 @@ impl Request {
         let request_line = HTTPRequestLine::from_str(&request_line_string)?;
 
         match request_line.get_kind() {
-            HTTPType::Get => Ok(Self::GetRequest(GETRequest{path: request_line.path, ip})),
+            HTTPType::Get => Ok(Self::GetRequest(GETRequest::new(request_line, ip)?)),
             HTTPType::Post => Ok(Self::POSTRequest(POSTRequest::new(request_line, buf_reader, ip)?)),
         }
     }
@@ -246,6 +248,7 @@ impl Request {
 #[derive(Debug)]
 pub struct POSTRequest {
     path: String,
+    query_string: HashMap<String, String>,
     host: String,
     ip: IpAddr,
     content_type: ContentType,
@@ -255,7 +258,14 @@ pub struct POSTRequest {
 
 impl POSTRequest {
     pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>, ip: IpAddr) -> Result<Self, HTTPError>{
-        let path = line.path;
+        let (path, query_string) = match line.path.split_once("?") {
+            Some((left, right)) => {
+                let queries = process_query_string(right)?;
+                (left.to_owned(), queries)
+            },
+            None => (line.path, HashMap::new())
+        };
+
 
         let (header, mut reader) = split_post_request(reader)?;
 
@@ -294,6 +304,7 @@ impl POSTRequest {
         Ok(Self {
             path,
             host,
+            query_string,
             ip,
             content_type,
             content_length,
@@ -320,6 +331,23 @@ impl POSTRequest {
     pub fn get_content_type(&self) -> ContentType {
         self.content_type
     }
+
+    pub fn get_query(&self, key: &str) -> Option<&String> {
+        self.query_string.get(key)
+    }
+}
+
+fn process_query_string(queries: &str) -> Result<HashMap<String, String>, HTTPError> {
+    let map = queries.split("&")
+        .map(|decleration| {
+            match decleration.split_once("=") {
+                None => Err(HTTPError::InvalidPath),
+                Some((l, r)) => Ok((l.to_owned(), r.to_owned()))
+            }
+        })
+        .collect::<Result<HashMap<String, String>, HTTPError>>();
+
+    map
 }
 
 fn split_post_request(mut reader: BufReader<&mut TcpStream>) -> Result<(String, BufReader<&mut TcpStream>), HTTPError> {
@@ -358,7 +386,29 @@ fn split_post_request(mut reader: BufReader<&mut TcpStream>) -> Result<(String, 
 #[derive(Debug)]
 pub struct GETRequest {
     pub path: String,
+    query_string: HashMap<String, String>,
     ip: IpAddr,
+}
+
+impl GETRequest {
+    pub fn new(line: HTTPRequestLine, ip: IpAddr) -> Result<Self, HTTPError> {
+        let (path, query_string) = match line.path.split_once("?") {
+            Some((left, right)) => {
+                let queries = process_query_string(right)?;
+                (left.to_owned(), queries)
+            },
+            None => (line.path, HashMap::new())
+        };
+        Ok(Self {
+            path,
+            query_string,
+            ip,
+        })
+    }
+
+    pub fn get_query(&self, key: &str) -> Option<&String> {
+        self.query_string.get(key)
+    }
 }
 
 #[derive(Debug)]

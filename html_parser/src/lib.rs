@@ -4,12 +4,13 @@ pub mod tag;
 
 use std::error::Error;
 use std::fmt::Display;
+use std::path::Path;
 
 use scanner::Scanner;
 use parser::Parser;
 use tag::{Tag, IterTag};
 
-pub fn parse_file(file: &str) -> Result<Vec<Tag>, HTMLError> {
+pub fn parse_file(file: &Path) -> Result<Vec<Tag>, HTMLError> {
     //start with < end with >
     let f = std::fs::read_to_string(file)?;
 

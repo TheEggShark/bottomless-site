@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 lettre = "0.10.4"
+blog_cli = {path="../blog_cli"}

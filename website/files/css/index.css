@@ -55,7 +55,7 @@ html, body {
 .front-page-wrapper {
     background-color: #3F4045;
     border-radius: 15px;
-    width: 1200px;
+    width: min(1200px, 100%);
     padding: 30px;
     padding-left: 40px;
     padding-right: 40px;

@@ -8,6 +8,7 @@ use std::{
     time::{SystemTime, Instant, Duration},
     env, thread,
 };
+use blog_cli::Cbmd;
 use website::thread::ThreadPool;
 use website::apis::ApiRegister;
 use website::types::{
@@ -50,6 +51,7 @@ fn main() {
     let mut apis = ApiRegister::new();
     apis.register_api("/api/test", Box::new(test_api), 6, 360);
     apis.register_api("/api/mail", Box::new(email_api), 6, 360);
+    apis.register_api("/api/recentBlogPosts", Box::new(get_recent_blog_posts), 6, 360);
     let apis = Arc::new(apis);
 
     let register = Arc::clone(&apis);
@@ -392,4 +394,62 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
     }
 
     Response::empty_ok()
+}
+
+fn get_recent_blog_posts(request: Request) -> Response {
+    let request = match request {
+        Request::GetRequest(r) => r,
+        Request::POSTRequest(_) => return Response::new_405_error("GET"),
+    };
+
+    let skip = match request.get_query("skip") {
+        None => 0,
+        Some(value) => match value.parse::<usize>() {
+            Ok(v) => v,
+            Err(_) => return Response::new_400_error(HTTPError::InvalidPath),  
+        }
+    };
+
+    let max = match request.get_query("max") {
+        None => 5,
+        Some(value) => match value.parse::<usize>() {
+            Ok(v) => {
+                if v > 50 {
+                    50
+                } else {
+                    50
+                }
+            },
+            Err(_) => return Response::new_400_error(HTTPError::InvalidPath),  
+        }
+    };
+
+    //read in cbmd
+    let dir = fs::read_dir("website/files/blog").unwrap();
+    let mut blog_data = dir.filter_map(|f| f.ok())
+        .filter(|f| f.path().extension() == Some(OsStr::new("cbmd")))
+        .filter_map(|f| Cbmd::from_meta_file(&f.path()).ok())
+        .collect::<Vec<Cbmd>>();
+    blog_data.sort_by(|a, b| b.get_timestamp().cmp(&a.get_timestamp()));
+    
+    let blog_data = blog_data.into_iter()
+        .skip(skip)
+        .take(max)
+        .map(|data| data.serialize())
+        .collect::<Vec<Vec<u8>>>();
+    
+    let num_of_items = blog_data.len();
+    let total_bytes = blog_data.iter().map(Vec::len).sum::<usize>();
+    let mut data: Vec<u8> = Vec::with_capacity(total_bytes + 1);
+    data.push(num_of_items as u8);
+
+    //format it back into serilaized data
+    for byte_array in blog_data {
+        let len = byte_array.len() as u16;
+        let len_bytes = len.to_le_bytes();
+        data.extend_from_slice(&len_bytes);
+        data.extend_from_slice(&byte_array);
+    }
+
+    Response::new(200, ContentType::OctetStream, None, None, data)
 }

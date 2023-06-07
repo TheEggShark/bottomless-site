@@ -1,11 +1,11 @@
 //he he he he cat metadata
-
+use std::path::Path;
 use std::{fs::{File, OpenOptions}, io::{BufReader, Read, Write}};
-use super::mm_dd_yyyy_since_epoch;
 use html_parser::{HTMLError, parse_file, flaten_tree};
 use html_parser::tag::IterTag;
 
 const UNIX_DAY_JULIAN: u64 = 2440588;
+const UNIX_EPOCH_DAY: u64 = 719_163;
 
 #[derive(Debug)]
 pub struct Cbmd {
@@ -25,7 +25,7 @@ impl Cbmd {
         }
     }
 
-    pub fn from_html_file(path: &str) -> Result<Self, HTMLError> {
+    pub fn from_html_file(path: &Path) -> Result<Self, HTMLError> {
         let tag_tree = parse_file(path)?;
         let meta_tags = flaten_tree(tag_tree)
             .into_iter()
@@ -57,7 +57,7 @@ impl Cbmd {
         Ok(Cbmd::new(title, intro, publish_date))
     }
 
-    pub fn from_file(path: &str) -> Result<Self, std::io::Error> {
+    pub fn from_meta_file(path: &Path) -> Result<Self, std::io::Error> {
         let file = File::open(path)?;
         let mut buf_reader = BufReader::new(file);
         
@@ -91,7 +91,7 @@ impl Cbmd {
         format!("{}/{}/{}", date.month(), date.day(), date.year())
     }
 
-    pub fn write_to_file(self, out_path: &str) -> Result<(), std::io::Error> {
+    pub fn write_to_file(self, out_path: &Path) -> Result<(), std::io::Error> {
         let t_bytes = self.title.as_bytes();
         let t_len = t_bytes.len();
         assert!(t_len < 256);
@@ -118,6 +118,24 @@ impl Cbmd {
 
         Ok(())
     }
+
+    pub fn get_timestamp(&self) -> u64 {
+        self.publish_ts
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let title_len = self.title.len();
+        let words_len = self.intro_words.len();
+        let mut data: Vec<u8> = Vec::with_capacity(1 + title_len + 1 + words_len + 8);
+        data.push(title_len as u8);
+        data.extend_from_slice(self.title.as_bytes());
+        data.push(words_len as u8);
+        data.extend_from_slice(self.intro_words.as_bytes());
+        let ts_bytes = self.publish_ts.to_le_bytes();
+        data.extend_from_slice(&ts_bytes);
+
+        data
+    } 
 }
 
 fn epoch_time_stamp_to_time(timestamp: u64) -> time::Date {
@@ -135,4 +153,52 @@ fn trim_newline(s: &mut String) {
             s.pop();
         }
     }
+}
+
+fn mm_dd_yyyy_since_epoch(date: &str) -> u64 {
+    let date = date.trim();
+
+    let month_day_year = date.split("/")
+        .map(|num| num.parse::<i32>())
+        .filter(|res| res.is_ok())
+        .map(|u| u.unwrap())
+        .collect::<Vec<i32>>();
+
+    assert!(month_day_year.len() == 3);
+
+    let month = match month_day_year[0] % 12 {
+        0 => time::Month::December,
+        1 => time::Month::January,
+        2 => time::Month::February,
+        3 => time::Month::March,
+        4 => time::Month::April,
+        5 => time::Month::May,
+        6 => time::Month::June,
+        7 => time::Month::July,
+        8 => time::Month::August,
+        9 => time::Month::September,
+        10 => time::Month::October,
+        11 => time::Month::November,
+        _ => unreachable!(),
+    };
+
+    // this code is stolen from chrono but i didnt want that massive crate just for 
+    // a time stamp so I got time and just implented the .timestap method and the
+    // days_from_ce in the datelike trait. This also does not acount for leapseconds
+    // but that only means this is 23 seconds behind and I belive this is in UTC
+
+    let date = time::Date::from_calendar_date(month_day_year[2], month, month_day_year[1] as u8).unwrap();
+    let mut year = date.year() - 1;
+    let mut ndays_from_ce = 0;
+    if year < 0 {
+        let excess = 1 + (-year) / 400;
+        year += excess * 400;
+        ndays_from_ce -= excess * 146_097;
+    }
+    let div_100 = year / 100;
+    ndays_from_ce += ((year * 1461) >> 2) - div_100 + (div_100 >> 2);
+    ndays_from_ce += date.ordinal() as i32;
+    let gregorian_day = u64::from(ndays_from_ce as u32);
+
+    (gregorian_day - UNIX_EPOCH_DAY) * 86_400
 }
