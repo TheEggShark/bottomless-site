@@ -11,16 +11,18 @@ const UNIX_EPOCH_DAY: u64 = 719_163;
 pub struct Cbmd {
     title: String,
     intro_words: String,
+    path: String,
     publish_ts: u64,
 }
 
 impl Cbmd {
-    pub fn new(mut title: String, mut intro_words: String, publish_ts: u64) -> Self {
+    pub fn new(mut title: String, mut intro_words: String, path: String, publish_ts: u64) -> Self {
         trim_newline(&mut title);
         trim_newline(&mut intro_words);
         Self {
             title,
             intro_words,
+            path,
             publish_ts,
         }
     }
@@ -52,9 +54,10 @@ impl Cbmd {
             }
         }
     
+        let path = cut_down_full_path(path.to_str().unwrap()).to_string();
         let publish_date = mm_dd_yyyy_since_epoch(&publish_date);
     
-        Ok(Cbmd::new(title, intro, publish_date))
+        Ok(Cbmd::new(title, intro, path, publish_date))
     }
 
     pub fn from_meta_file(path: &Path) -> Result<Self, std::io::Error> {
@@ -75,6 +78,12 @@ impl Cbmd {
         buf_reader.read_exact(&mut intro_word_bytes)?;
         let intro_words = String::from_utf8_lossy(&intro_word_bytes).to_string();
         
+        let mut path_len = [0_u8; 1];
+        buf_reader.read_exact(&mut path_len)?;
+        let mut path_bytes = vec![0_u8; path_len[0] as usize];
+        buf_reader.read_exact(&mut path_bytes)?;
+        let path = String::from_utf8_lossy(&path_bytes).to_string();
+
         let mut ts_bytes = [0_u8; 8];
         buf_reader.read_exact(&mut ts_bytes)?;
         let publish_ts = u64::from_le_bytes(ts_bytes);
@@ -82,6 +91,7 @@ impl Cbmd {
         Ok(Self {
             title,
             intro_words,
+            path,
             publish_ts,
         })
     }
@@ -92,20 +102,7 @@ impl Cbmd {
     }
 
     pub fn write_to_file(self, out_path: &Path) -> Result<(), std::io::Error> {
-        let t_bytes = self.title.as_bytes();
-        let t_len = t_bytes.len();
-        assert!(t_len < 256);
-        let i_bytes = self.intro_words.as_bytes();
-        let i_len = i_bytes.len();
-        assert!(i_len < 256);
-        let ts_bytes = self.publish_ts.to_le_bytes();
-    
-        let mut buffer: Vec<u8> = Vec::with_capacity(t_len + i_len + 8);
-        buffer.push(t_len as u8);
-        buffer.extend_from_slice(t_bytes);
-        buffer.push(i_len as u8);
-        buffer.extend_from_slice(i_bytes);
-        buffer.extend_from_slice(&ts_bytes);
+        let buffer = self.serialize();
     
         let mut file = OpenOptions::new()
             .write(true)
@@ -126,11 +123,16 @@ impl Cbmd {
     pub fn serialize(&self) -> Vec<u8> {
         let title_len = self.title.len();
         let words_len = self.intro_words.len();
-        let mut data: Vec<u8> = Vec::with_capacity(1 + title_len + 1 + words_len + 8);
+        let path_len = self.path.len();
+
+        let mut data: Vec<u8> = Vec::with_capacity(1 + title_len + 1 + words_len + 1 + path_len + 8);
         data.push(title_len as u8);
         data.extend_from_slice(self.title.as_bytes());
         data.push(words_len as u8);
         data.extend_from_slice(self.intro_words.as_bytes());
+        data.push(path_len as u8);
+        data.extend_from_slice(self.path.as_bytes());
+
         let ts_bytes = self.publish_ts.to_le_bytes();
         data.extend_from_slice(&ts_bytes);
 
@@ -153,6 +155,10 @@ fn trim_newline(s: &mut String) {
             s.pop();
         }
     }
+}
+
+fn cut_down_full_path(s: &str) -> &str {
+    &s[13..s.len()-5]
 }
 
 fn mm_dd_yyyy_since_epoch(date: &str) -> u64 {
