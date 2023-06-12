@@ -11,6 +11,8 @@
     <title>Charles Crabtree Blog</title>
     <link rel="stylesheet" href="css/index.css">
     <link rel="stylesheet" href="css/blog.css">
+    <script src="js/cbmd.js"></script>
+    <script src="js/blog.js" defer></script>
 </head>
 <body>
     <div class="blog-flex">
@@ -23,31 +25,38 @@
             <p>
                 This is a list of everything I've ever written. Its sorted in order published so having diving into the archive!
             </p>
-            <div class="blog-card">
-                <h2>Blog Title</h2>
-                <p class="secondary-information">date published</p>
-                <hr class="card-break">
-                <p class="secondary-information">intro_blurb <br> asdsa</p>
+            <div class="search-wrapper">
+                <input class="search-bar" id="search-bar" placeholder="Search...">
+                <button class="search-button" onclick="search()">Go!</button>
+                <div class="search-results" id="search-results">
+                    <button class="search-close-button" onclick="clear_results()"><img src="images/close.png" alt="Cross"></button>
+                    <div class="inner-results" id="inner-results">
+
+                    </div>
+                </div>
             </div>
-            <div class="blog-card">
-                <h2>Blog Title</h2>
-                <p class="secondary-information">date published</p>
-                <hr class="card-break">
-                <p class="secondary-information">intro_blurb <br> asdsa</p>
-            </div>
-            <div class="blog-card">
-                <h2>Blog Title</h2>
-                <p class="secondary-information">date published</p>
-                <hr class="card-break">
-                <p class="secondary-information">intro_blurb <br> asdsa</p>
-            </div>
-            <div class="blog-card">
-                <h2>Blog Title</h2>
-                <p class="secondary-information">date published</p>
-                <hr class="card-break">
-                <p class="secondary-information">intro_blurb <br> asdsa</p>
+            <div id="blog-card-wrapper">
+
             </div>
         </div>
     </div>
 </body>
+<template id="blog-card">
+    <div class="blog-card">
+        <a><h2></h2></a>
+        <p class="secondary-information"></p>
+        <hr class="card-break">
+        <p class="secondary-information"></p>
+        <a class="read-more-button">read more</a>
+    </div>
+</template>
+<template id="search-card">
+    <div class="search-card">
+        <h3>title</h3> 
+        <p class="secondary-information">publish-date</p>
+        <hr class="card-break">
+        <p class="secondary-information">intro word</p>
+        <a class="read-more-button" style="background-color: #423841;">read more</a>
+    </div>
+</template>
 </html>

@@ -120,6 +120,10 @@ impl Cbmd {
         self.publish_ts
     }
 
+    pub fn get_title(&self) -> &str {
+        &self.title
+    }
+
     pub fn serialize(&self) -> Vec<u8> {
         let title_len = self.title.len();
         let words_len = self.intro_words.len();

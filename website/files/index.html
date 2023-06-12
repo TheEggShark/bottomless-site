@@ -10,8 +10,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Charles Crabtree</title>
     <link rel="stylesheet" href="css/index.css">
+    <script src="js/cbmd.js"></script>
     <script src="js/contact.js" defer></script>
-    <script src="js/blog.js" defer></script>
+    <script src="js/index.js" defer></script>
     <style>
         body {
             height: 100%;
@@ -34,7 +35,7 @@
                         <img src="images/github-mark.png" class="github-logo" alt="GitHub Logo">
                     </a>
                     <a href="https://crates.io/crates/bottomless-pit" target="_blank" rel="noopener noreferrer" class="color-remover github-logo">
-                        <img src="images/rust-logo-blk.svg" class="github-logo" alt="Rust Logo"/>
+                        <img src="images/cargo.png" class="github-logo" alt="Cargo Logo"/>
                     </a>
                 </div>
             </div>
@@ -66,16 +67,8 @@
                 </div>
                 <div class="front-page-item">
                     <h2>Blog</h2>
-                    <div>
-                        <div class="inner-trio blog-section">
-                            <h3 class="blog-text">blog post title 1</h3>
-                            <p class="blog-text">cool little detial, perhabs even a complete intro sentence</p>
-                        </div>
-                        <div class="inner-trio blog-section">
-                            <h3 class="blog-text">blog post title 2</h3>
-                            <p class="blog-text">cool little detail, perhaps even more of an intro sentnce</p>
-                        </div>
-                        <a href="/blog">see all posts -></a>
+                    <div id="blog-card-holder">
+
                     </div>
                 </div>
                 <div class="front-page-item">
@@ -99,4 +92,20 @@
         </div>
     </div>
 </body>
+<template id="mini-card-template">
+    <div class="inner-trio blog-section">
+        <h3 class="blog-text"></h3>
+        <p class="blog-text"></p>
+        <hr class="mini-card-break">
+        <p class="blog-text"></p>
+    </div>
+</template>
+<template id="mini-card-error">
+    <div class="mini-card-error-wrapper">
+        <img src="images/ded1.png" alt="cartoon shark">
+        <h3>Something went wrong</h3>
+        <p>please try again later!</p>
+        <button href="/blog">go to blog page</button>
+    </div>
+</template>
 </html>

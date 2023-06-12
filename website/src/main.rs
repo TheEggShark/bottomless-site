@@ -51,7 +51,8 @@ fn main() {
     let mut apis = ApiRegister::new();
     apis.register_api("/api/test", Box::new(test_api), 6, 360);
     apis.register_api("/api/mail", Box::new(email_api), 6, 360);
-    apis.register_api("/api/recentBlogPosts", Box::new(get_recent_blog_posts), 6, 360);
+    apis.register_api("/api/recentBlogPosts", Box::new(get_recent_blog_posts), 60, 360);
+    apis.register_api("/api/searchBlog", Box::new(search_blog_posts), 20, 360);
     let apis = Arc::new(apis);
 
     let register = Arc::clone(&apis);
@@ -417,7 +418,7 @@ fn get_recent_blog_posts(request: Request) -> Response {
                 if v > 50 {
                     50
                 } else {
-                    50
+                    v
                 }
             },
             Err(_) => return Response::new_400_error(HTTPError::InvalidPath),  
@@ -432,12 +433,38 @@ fn get_recent_blog_posts(request: Request) -> Response {
         .collect::<Vec<Cbmd>>();
     blog_data.sort_by(|a, b| b.get_timestamp().cmp(&a.get_timestamp()));
     
-    let blog_data = blog_data.into_iter()
+    send_blog_vec(blog_data, skip, max)
+}
+
+fn search_blog_posts(request: Request) -> Response {
+    let request = match request {
+        Request::GetRequest(r) => r,
+        Request::POSTRequest(_) => return Response::new_405_error("GET"),
+    };
+
+    let blog_title = match request.get_query("title") {
+        Some(t) => clean_url_spaces(t),
+        None => return Response::new_400_error(HTTPError::InvalidPath),
+    };
+
+    //read in cbmd
+    let dir = fs::read_dir("website/files/blog").unwrap();
+    let blog_data = dir.filter_map(|f| f.ok())
+        .filter(|f| f.path().extension() == Some(OsStr::new("cbmd")))
+        .filter_map(|f| Cbmd::from_meta_file(&f.path()).ok())
+        .filter(|f| f.get_title().contains(&blog_title))
+        .collect::<Vec<Cbmd>>();
+
+    send_blog_vec(blog_data, 0, 8)
+}
+
+fn send_blog_vec(data: Vec<Cbmd>, skip: usize, max: usize) -> Response {
+    let blog_data = data.into_iter()
         .skip(skip)
         .take(max)
         .map(|data| data.serialize())
         .collect::<Vec<Vec<u8>>>();
-    
+
     let num_of_items = blog_data.len();
     let total_bytes = blog_data.iter().map(Vec::len).sum::<usize>();
     let mut data: Vec<u8> = Vec::with_capacity(total_bytes + 1);
@@ -452,4 +479,8 @@ fn get_recent_blog_posts(request: Request) -> Response {
     }
 
     Response::new(200, ContentType::OctetStream, None, None, data)
+}
+
+fn clean_url_spaces(text: &str) -> String {
+    text.replace("%20", " ")
 }

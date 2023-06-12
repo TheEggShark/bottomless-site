@@ -441,7 +441,7 @@ impl std::str::FromStr for HTTPRequestLine {
 
         let path = match groups.next() {
             None => return Err(HTTPError::InvalidPath),
-            Some(s) => s.to_string()
+            Some(s) => s.replace("%20", " ")
         };
 
         // garuntees unwrap wont fail later

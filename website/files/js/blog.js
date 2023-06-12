@@ -1,74 +1,104 @@
-const decoder = new TextDecoder()
+let skip = 0;
+let stuff_to_load = true;
+const blogCardTemplate = document.getElementById("blog-card");
+const blogWrapper = document.getElementById("blog-card-wrapper");
+const blogSearchButton = document.getElementById("search-button");
+const searchResults = document.getElementById("search-results");
+const searchCard = document.getElementById("search-card");
+const searchBar = document.getElementById("search-bar");
+const innerResults = document.getElementById("inner-results");
 
-async function fetch2posts() {
-    let res = await fetch("/api/recentBlogPosts?max=2");
-    let buffer = await res.arrayBuffer();
-    let cbmds = create_cbmd_from_buffer(buffer);
-    console.log(cbmds);
-}
+searchBar.addEventListener("keypress", (event) => {
+    if (event.key == "Enter") {
+        event.preventDefault();
 
-function create_cbmd_from_buffer(buffer) {
-    let cbmds = [];
-    let pain = new DataView(buffer);
-    let cursor = 0;
+        search();
+    }
+})
 
-    let num_cards = pain.getUint8(cursor, true);
-    console.log(num_cards);
-    cursor++;
 
-    for (let i = 0; i < num_cards; i++) {
-        let first_item_len = pain.getUint16(cursor, true);
-        cursor += 2;
+get_posts();
 
-        let text_len = pain.getUint8(cursor, true);
-        cursor++;
-        let text_slice = buffer.slice(cursor, cursor+text_len);
-        let title = decoder.decode(text_slice);
-        cursor += text_len;
+async function get_posts() {
+    const res = await fetch(`/api/recentBlogPosts?skip=${skip}&max=10`);
 
-        let intro_len = pain.getUint8(cursor, true);
-        cursor++;
-        let intro = decoder.decode(buffer.slice(cursor, cursor+intro_len));
-        cursor += intro_len;
-
-        let url_len = pain.getUint8(cursor, true);
-        cursor++;
-        let url_text = decoder.decode(buffer.slice(cursor, cursor + url_len));
-        cursor += url_len;
-
-        let publish_ts = get_u64(pain, cursor);
-        cursor += 8;
-        let publish_date = toDateTime(publish_ts);
-
-        cbmds.push(new Cbmd(title, intro, url_text, publish_date))
+    if (!res.ok) {
+        console.log(res);
+        return;
     }
 
-    return cbmds;
-}
+    const buffer = await res.arrayBuffer();
 
-function get_u64(dataview, cursor) {
-    const left =  dataview.getUint32(cursor, true);
-    const right = dataview.getUint32(cursor+4, true);
-  
-    // combine the two 32-bit values
-    const combined = left + 2**32*right;
-    return combined;
-}
+    const cmbds = create_cbmd_from_buffer(buffer);
 
-function toDateTime(secs) {
-    var t = new Date(Date.UTC(1970, 0, 1)); // Epoch
-    t.setUTCHours(t.getUTCHours() + 6); // all TS were made in CST so this coverts it!
-    t.setUTCSeconds(secs);
-    return t;
-}
-
-fetch2posts();
-
-class Cbmd {
-    constructor(title, intro, url, publish_date) {
-        this.title = title;
-        this.intro = intro;
-        this.url = url;
-        this.publish_date = publish_date;
+    if (cmbds.length == 0) {
+        stuff_to_load = false;
+        return;
     }
+
+    skip += cmbds.length;
+
+    for (let i = 0; i < cmbds.length; i++) {
+        const data = cmbds[i];
+
+        const clone = blogCardTemplate.content.firstElementChild.cloneNode(true);
+        const title = clone.getElementsByTagName("h2")[0];
+        const publish_date = clone.getElementsByTagName("p")[0];
+        const intro = clone.getElementsByTagName("p")[1];
+        const link = clone.getElementsByTagName("a")[0];
+        const button = clone.getElementsByTagName("a")[1];
+
+        title.innerText = data.title;
+        publish_date.innerText = `${data.publish_date.getDate()}/${data.publish_date.getMonth()}/${data.publish_date.getFullYear()}`;;
+        intro.innerText = data.intro;
+        link.href = data.url;
+        button.href = data.url;
+
+        blogWrapper.appendChild(clone);
+    };
 }
+
+async function search() {
+    const res = await fetch(`/api/searchBlog?title=${searchBar.value}`);
+    const buffer = await res.arrayBuffer();
+    const cmbds = create_cbmd_from_buffer(buffer);
+
+    innerResults.innerHTML = '';
+
+    for (let i = 0; i < cmbds.length; i++) {
+        const data = cmbds[i];
+        const clone = searchCard.content.firstElementChild.cloneNode(true);
+
+        const title = clone.getElementsByTagName("h3")[0];
+        const publish_date = clone.getElementsByTagName("p")[0];
+        const intro = clone.getElementsByTagName("p")[1];
+        const link = clone.getElementsByTagName("a")[0];
+
+        title.innerText = data.title;
+        publish_date.innerText = `${data.publish_date.getDate()}/${data.publish_date.getMonth()}/${data.publish_date.getFullYear()}`;
+        intro.innerText = data.intro;
+        link.href = data.url;
+
+        innerResults.appendChild(clone);
+    }
+
+    searchResults.style.padding = "10px";
+    searchResults.style.maxHeight = searchResults.scrollHeight + "px";
+}
+
+function clear_results() {
+    searchResults.style.padding = 0;
+    searchResults.style.maxHeight = 0;
+}
+
+window.addEventListener("scroll", () => {
+    const {
+        scrollTop,
+        scrollHeight,
+        clientHeight
+    } = document.documentElement;
+
+    if ((scrollTop + clientHeight >= scrollHeight) && stuff_to_load) {
+        get_posts();
+    }
+})

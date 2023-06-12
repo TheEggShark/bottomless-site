@@ -134,6 +134,21 @@ html, body {
     padding: 10px;
 }
 
+.mini-card-break {
+    color: #3F4045;
+}
+
+.mini-card-error-wrapper {
+    border-radius: 6px;
+    background-color: #5D737E;
+    padding: 8px;
+    margin: 20px;
+}
+
+.mini-card-error-wrapper * {
+    margin: 5px;
+}
+
 .front-page-item {
     height: 400px;
     width: 30%;
