@@ -17,6 +17,7 @@
     padding-left: 40px;
     padding-right: 40px;
     width: min(765px, 100%);
+    position: relative;
 }
 
 .blog-wrapper * {
@@ -73,6 +74,21 @@
 .search-close-button img {
     width: 20px;
     height: 20px
+}
+
+.no-content-wrapper {
+    display: flex;
+    justify-content: center;    
+    align-items: center;
+    width: 100%;
+}
+
+.no-content {
+    padding: 15px;
+    background-color: #5D737E;
+    width: 66%;
+    text-align: center;
+    border-radius: 20px;
 }
 
 .search-results {

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects</title>
+    <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="css/project.css">
+</head>
+<body>
+    <body>
+        <div class="project-flex">
+            <div class="project-wrapper">
+                <div class="icon-bar">
+                    <a href="/"><img src="images/house.png" alt="home icon" class="blog-icon"></a>
+                    <a href="/blog"><img src="images/blog.png" alt="blog icon" class="blog-icon"></a>
+                    <a href="/projects"><img src="images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+                </div>
+                <h1 class="project-page-title">Projects</h1>
+                <p>
+                    This is in no way a complete list for that please checkout my GitHub 
+                    <a href="https://github.com/EggShark" target="_blank" rel="noopener noreferrer">here</a>
+                </p>
+                <div class="project-card-wrapper">
+                    <div class="project-card">
+                        <div class="project-top-line">
+                            <a href="https://github.com/EggShark/bottomless-pit" target="_blank" rel="noopener noreferrer">
+                                <img src="images/bplogo.png" alt="cat ears in a large pit" class="project-icon">
+                            </a>
+                        </div>
+                        <p> 
+                            Bottomless-Pit is the first major porject I have ever completed. In its current position (version 0.1.1) Bottomless-Pit
+                            is more of a rendering engine than a game engine. Despite its infancy I belive it is fully capable for small games as 
+                            Bottomless-Pit has:
+                        </p>
+                        <ul>
+                            <li>texture rendering</li>
+                            <li>input handling (mouse and keyboard only)</li>
+                            <li>text rendering using wgpu-glyph (plans to write a custom one)</li>
+                        </ul>
+                        <p>
+                            My current priority is to add gamepad support and an audio system.
+                        </p>
+                        <p>
+                            Add the crate from
+                            <a href="https://crates.io/crates/bottomless-pit" target="_blank" rel="noopener noreferrer">crates.io</a>
+                            please test out the engine and let me know of any problems on
+                            <a href="https://github.com/EggShark/bottomless-pit" target="_blank" rel="noopener noreferrer">GitHub</a>
+                        </p>
+                    </div>
+                    <div class="project-card">
+                        <div class="project-top-line"> 
+                            <h2>Bottomless-Site</h2>
+                        </div>
+                        <p>
+                            Bottomless-Site is the website/webserver that you are using right now. The front end is nothing special as everything
+                            is vinllia JS/CSS/HTML, no frameworks are used. I am much more proud of the back end, which is written complety by hand
+                            in rust. It's pretty rudemtary but the things I am most proud of is the API system. It is just a hashmap of functions with
+                            the path acting as the key. On top of the API I needed to add rate limiting. The rate limiter uses the clients IP address
+                            used to identify them. I would like to change this later as if there is multiple people on the same IP then they can use
+                            each others requests.
+                        </p>
+                        <p> Other notable features include: </p>
+                        <ul>
+                            <li>Custom HTML parser</li>
+                            <li>Custom Metada files (used for blog API)</li>
+                            <li>GET and POST request APIs</li>
+                        </ul>
+                        <p>This site is completly open source. Please check it out on <a href="https://github.com/EggShark/bottomless-site" target="_blank" rel="noopener noreferrer">GitHub</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</body>
+</html>

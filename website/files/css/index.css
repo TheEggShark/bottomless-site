@@ -6,6 +6,10 @@ textarea {
     font: inherit;
 }
 
+input, label {
+    display: block;
+}
+
 a:visited {
     text-decoration: underline;
 }
@@ -35,6 +39,8 @@ html, body {
 
 .icon-bar {
     position: absolute;
+    top: 15px;
+    left: 30px;
 }
 
 .blog-icon {
@@ -68,6 +74,7 @@ html, body {
         0 0 50px #5D737E,
         -10px 0 80px #30292F,
         10px 0 80px #5D737E;
+    position: relative;
 }
 
 .front-page-message-wrapper {
@@ -170,6 +177,10 @@ html, body {
     border: none;
 }
 
+.message-title {
+    width: 300px;
+}
+
 .message-box:focus {
     outline: none;
     border: none;
@@ -181,12 +192,42 @@ html, body {
     outline: 0px none transparent;
     box-shadow: 0 3px 6px 5px #796778;
     border-bottom: 2px #796778;
+}  
+
+.email-label {
+    width: 80%;
+}
+
+.contact-div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    text-align: left;
+    margin-bottom: 10px;
+}
+
+.contact-div input {
+    width: 80%;
+    border: none;
+    padding: 0;
+}
+
+.contact-div input {
+    padding: 4px;
+    border-radius: 10px;
+}
+
+.contact-div input:focus {
+    outline: none;
+    border: none;
+    box-shadow: 0 3px 6px 5px #796778;
+    border-bottom: 2px #796778;
 }
 
 .error-highlight {
     box-shadow: 0 0 9px 1px #FF0A3B;
 }
-
 
 .success-text {
     color: #52A376;

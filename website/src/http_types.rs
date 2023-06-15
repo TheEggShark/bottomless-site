@@ -154,6 +154,7 @@ pub enum ContentType {
 pub enum ImageType {
     Png,
     Svg,
+    XIcon,
 }
 
 impl std::str::FromStr for ContentType {
@@ -162,6 +163,8 @@ impl std::str::FromStr for ContentType {
         println!("{s}");
         match s {
             "image/png" => Ok(Self::Image(ImageType::Png)),
+            "image/svg+xml" => Ok(Self::Image(ImageType::Svg)),
+            "image/x-icon" => Ok(Self::Image(ImageType::XIcon)),
             "text/css" => Ok(Self::Css),
             "text/javascript" => Ok(Self::JavaScript),
             "text/html" => Ok(Self::Html),
@@ -177,6 +180,7 @@ impl std::fmt::Display for ContentType {
         match self {
             Self::Image(ImageType::Png) => write!(f, "image/png"),
             Self::Image(ImageType::Svg) => write!(f, "image/svg+xml"),
+            Self::Image(ImageType::XIcon) => write!(f, "image/x-icon"),
             Self::Css => write!(f, "text/css"),
             Self::JavaScript => write!(f, "text/javascript"),
             Self::Html => write!(f, "text/html"),

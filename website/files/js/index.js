@@ -1,6 +1,7 @@
 const miniBlogTemplate = document.getElementById("mini-card-template");
 const miniBlogHolder = document.getElementById("blog-card-holder");
 const miniBlogError = document.getElementById("mini-card-error");
+const noContent = document.getElementById("no-content");
 
 async function fetch2posts() {
     const res = await fetch("/api/recentBlogPosts?max=2");
@@ -11,6 +12,10 @@ async function fetch2posts() {
 
     const buffer = await res.arrayBuffer();
     const cbmds = create_cbmd_from_buffer(buffer);
+
+    if (cbmds.length == 0) {
+        return no_content();
+    }
 
     for (let i = 0; i < cbmds.length; i++) {
         const data = cbmds[i];
@@ -44,6 +49,18 @@ function mini_card_error(res) {
     error_text.innerText = `Something Went Wrong (${res.status})`;
 
     miniBlogHolder.appendChild(template);
+}
+
+function no_content() {
+    const clone = noContent.content.firstElementChild.cloneNode(true);
+    miniBlogHolder.appendChild(clone);
+
+
+    const blog_link = document.createElement("a");
+    blog_link.href = "/blog";
+    blog_link.innerText = "see all posts ->";
+
+    miniBlogHolder.appendChild(blog_link);
 }
 
 fetch2posts();

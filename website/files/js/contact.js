@@ -1,5 +1,5 @@
 const encoder = new TextEncoder();
-const emailRegex = new RegExp(/^[A-Za-z0-9_!#$%&'*+\/=?`{|}~^.-]+@[A-Za-z0-9.-]+$/, "gm");
+const emailRegex = new RegExp(/^[A-Za-z0-9_!#$%&'*+\/=?`{|}~^.-]+@[A-Za-z0-9.-]+$/, "m");
 const loadingBar = document.getElementById("loadingDots");
 const emailSubmitButton = document.getElementById("mailButton");
 const emailInput = document.getElementById("email");
@@ -8,6 +8,7 @@ const emailText = document.getElementById("emailText");
 
 function sendMailApiRequest() {
     const email = emailInput.value;
+    console.log(email);
 
     emailText.style.display = "none";
     emailText.innerText = "";
@@ -15,7 +16,9 @@ function sendMailApiRequest() {
     emailInput.classList.remove("error-highlight");
     messageInput.classList.remove("error-highlight");
 
-    if (!emailRegex.test(email)) {
+    const is_valid = !emailRegex.test(email);
+
+    if (is_valid) {
         console.log("not an valid email");
         emailInput.classList.add("error-highlight");
         error_text("Not an valid Email");

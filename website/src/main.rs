@@ -197,6 +197,7 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
         Some("js") => ContentType::JavaScript,
         Some("png") => ContentType::Image(ImageType::Png),
         Some("svg") => ContentType::Image(ImageType::Svg),
+        Some("ico") => ContentType::Image(ImageType::XIcon),
         ext => {
             println!("Unsuported extention: {:?}", ext);
             let response = Response::new_400_error(HTTPError::InvalidPath).into_bytes();

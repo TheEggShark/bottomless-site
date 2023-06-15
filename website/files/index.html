@@ -22,6 +22,11 @@
 <body>
     <div class="front-page-flex">
         <div class="front-page-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
             <div class="front-page-message-wrapper">
                 <h1>&#x1F980;&#x1F980;Bottomless-Site&#x1F980;&#x1F980;</h1>
                 <p class="front-page-message"> 
@@ -45,7 +50,7 @@
                     <div>
                         <div class="inner-trio project-display">
                             <a href="https://github.com/TheEggShark/bottomless-pit" target="_blank" rel="noopener noreferrer" class="project-icon">
-                                <img src="images/testing_triangle.png" class="project-icon" alt="rainbow triangle">
+                                <img src="images/bplogo.png" class="project-icon" alt="rainbow triangle">
                             </a>
                             <div class="project-discription">
                                 <span>
@@ -63,30 +68,31 @@
                                 <p class="project-text">An HTTP webserver written in rust used to host this website</p>
                             </div>
                         </div>
+                        <a href="/projects">see more projects -></a>
                     </div>
                 </div>
                 <div class="front-page-item">
                     <h2>Blog</h2>
                     <div id="blog-card-holder">
-
                     </div>
                 </div>
                 <div class="front-page-item">
                     <h2>Contact</h2>
-                    <label for="email">Email:</label>
-                    <br>
-                    <input class="emailbox" id="email" placeholder="example@example.com" name="email">
-                    <br>
-                    <label for="message">Message:</label>
-                    <textarea class="message-box" id="message" placeholder="message" name="message"></textarea>
-                    <br>
+                    <div class="contact-div">
+                        <label for="email" class="email-label">Email:</label>
+                        <input class="emailbox" id="email" placeholder="example@example.com" name="email">
+                    </div>
+                    <div class="contact-div">
+                        <label for="message" class="message-title">Message:</label>
+                        <textarea class="message-box" id="message" placeholder="message" name="message"></textarea>
+                    </div>
                     <button class="submit-button" onclick="sendMailApiRequest()" id="mailButton">Send Email!</button>
                     <div class="circle-trio" style="display: none;" id="loadingDots">
                         <div class="loading-circle c1"></div>
                         <div class="loading-circle c2"></div>
                         <div class="loading-circle c3"></div>
                     </div>
-                    <p class="failure-text" id="emailText">success!</p>
+                    <p class="failure-text" id="emailText"></p>
                 </div>
             </div>
         </div>
@@ -106,6 +112,13 @@
         <h3>Something went wrong</h3>
         <p>please try again later!</p>
         <button href="/blog">go to blog page</button>
+    </div>
+</template>
+<template id="no-content">
+    <div class="mini-card-error-wrapper">
+        <img src="images/ded1.png" alt="dazed cartoon shark">
+        <h3>Nothing here yet!</h3>
+        <p>please come back when I write some content!</p>
     </div>
 </template>
 </html>
