@@ -37,7 +37,7 @@
                 </div>
             </div>
             <div id="blog-card-wrapper">
-                <div class="no-content-wrapper">
+                <div class="no-content-wrapper" id="no-posts">
                     <div class="no-content">
                         <h2>Nothing here yet</h2>
                         <p>please come back once I have written some posts</p>
@@ -63,6 +63,27 @@
         <hr class="card-break">
         <p class="secondary-information">intro word</p>
         <a class="read-more-button" style="background-color: #423841;">read more</a>
+    </div>
+</template>
+<template id="post-error">
+    <div class="post-error-wrapper">
+        <div class="post-error">
+            <img src="images/ded1.png" alt="cartoon shark passed out">
+            <h2>Something went wrong (404)</h2>
+            <p>please try again later</p>
+        </div>
+    </div>
+</template>
+<template id="no-results">
+    <div class="no-results">
+        <h2>Nothing matched your search.</h2>
+        <p>please try a diffrent search.</p>
+    </div>
+</template>
+<template id="search-error">
+    <div class="search-error">
+        <h3>Something went wrong (401)</h3>
+        <p>please try again later</p>
     </div>
 </template>
 </html>

@@ -1,5 +1,6 @@
-html, .front-page-flex {
-    height: 100%;
+html {
+    margin: 0;
+    padding: 0;
 }
 
 textarea {
@@ -54,7 +55,6 @@ html, body {
     color: #FCFCFC;
     margin: 0;
     display: flex;
-    align-items: center;
     justify-content: center;
 }
 
@@ -63,8 +63,8 @@ html, body {
     border-radius: 15px;
     width: min(1200px, 100%);
     padding: 30px;
-    padding-left: 40px;
-    padding-right: 40px;
+    padding-left: min(40px, 3vw);
+    padding-right: min(40px, 3vw);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -75,6 +75,10 @@ html, body {
         -10px 0 80px #30292F,
         10px 0 80px #5D737E;
     position: relative;
+    height: auto;
+    max-height: 100%;
+    margin-top: clamp(4px, 10vh, 400px);
+    margin-bottom: clamp(4px, 10vh, 400px);
 }
 
 .front-page-message-wrapper {
@@ -97,9 +101,10 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 1000px;
+    width: min(1000px, 95%);
     padding: 20px;
     gap: 20px;
+    flex-wrap: wrap;
 }
 
 .inner-trio {
@@ -132,6 +137,13 @@ html, body {
     display: inline;
 }
 
+.blog-card-holder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 .blog-text {
     display: inline;
 }
@@ -139,6 +151,8 @@ html, body {
 .blog-section {
     text-align: start;
     padding: 10px;
+    margin-top: 0px;
+    margin-bottom: 20px;
 }
 
 .mini-card-break {
@@ -149,16 +163,28 @@ html, body {
     border-radius: 6px;
     background-color: #5D737E;
     padding: 8px;
-    margin: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80%;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
 }
 
-.mini-card-error-wrapper * {
-    margin: 5px;
+.mini-card-error-wrapper  * {
+    flex-basis: 100%;
+    margin: 0;
+    margin-bottom: 9px;
+}
+
+.mini-card-image {
+    width: 100px;
+    height: 100px;
 }
 
 .front-page-item {
     height: 400px;
-    width: 30%;
+    width: min(300px, 95%);
     text-align: center;
 }
 
@@ -170,7 +196,7 @@ html, body {
 .message-box {
     resize: none;
     height: 150px;
-    width: 300px;
+    width: min(300px, 95%);
     text-align: justify;
     border-radius: 15px;
     padding: 10px;

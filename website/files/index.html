@@ -28,7 +28,7 @@
                 <a href="/projects"><img src="images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
             </div>
             <div class="front-page-message-wrapper">
-                <h1>&#x1F980;&#x1F980;Bottomless-Site&#x1F980;&#x1F980;</h1>
+                <h1>&#x1F980;&#x1F980; Bottomless-Site &#x1F980;&#x1F980;</h1>
                 <p class="front-page-message"> 
                     Welcome to Bottomless-Site, this currently serves more as a tech demo for the webserver I wrote
                     which you can see 
@@ -73,7 +73,8 @@
                 </div>
                 <div class="front-page-item">
                     <h2>Blog</h2>
-                    <div id="blog-card-holder">
+                    <div id="blog-card-holder" class="blog-card-holder">
+
                     </div>
                 </div>
                 <div class="front-page-item">
@@ -108,15 +109,18 @@
 </template>
 <template id="mini-card-error">
     <div class="mini-card-error-wrapper">
-        <img src="images/ded1.png" alt="cartoon shark">
+        <div>
+            <img src="images/ded1.png" alt="dazed cartoon shark" class="mini-card-image">
+        </div>
         <h3>Something went wrong</h3>
         <p>please try again later!</p>
-        <button href="/blog">go to blog page</button>
     </div>
 </template>
 <template id="no-content">
     <div class="mini-card-error-wrapper">
-        <img src="images/ded1.png" alt="dazed cartoon shark">
+        <div>
+            <img src="images/ded1.png" alt="dazed cartoon shark" class="mini-card-image">
+        </div>
         <h3>Nothing here yet!</h3>
         <p>please come back when I write some content!</p>
     </div>

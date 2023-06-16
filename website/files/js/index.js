@@ -27,7 +27,7 @@ async function fetch2posts() {
 
         title_text.innerText = data.title;
         intro_text.innerText = data.intro;
-        date_text.innerText = `${data.publish_date.getDate()}/${data.publish_date.getMonth()}/${data.publish_date.getFullYear()}`;
+        date_text.innerText = `${data.publish_date.getMonth()+1}/${data.publish_date.getDate()}/${data.publish_date.getFullYear()}`;
 
         miniBlogHolder.appendChild(clone);
 
@@ -46,9 +46,21 @@ function mini_card_error(res) {
     const template = miniBlogError.content.firstElementChild.cloneNode(true);
 
     const error_text = template.getElementsByTagName("h3")[0];
-    error_text.innerText = `Something Went Wrong (${res.status})`;
+    
+    if (res.status == 429) {
+        error_text.innerText = "You're making too many requests";
+    } else {
+        error_text.innerText = `Something Went Wrong (${res.status})`;
+    }
+    
 
     miniBlogHolder.appendChild(template);
+
+    const blog_link = document.createElement("a");
+    blog_link.href = "/blog";
+    blog_link.innerText = "see all posts ->";
+
+    miniBlogHolder.appendChild(blog_link);
 }
 
 function no_content() {
