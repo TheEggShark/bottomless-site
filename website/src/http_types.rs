@@ -199,13 +199,6 @@ pub enum Request {
 
 impl Request {
     pub fn new(stream: &mut TcpStream) -> Result<Self, HTTPError> {
-        let ip = match stream.peer_addr() {
-            Ok(ip) => ip.ip(),
-            Err(_) => {
-                return Err(HTTPError::FailedToObtainIP)
-            }
-        };
-
         let mut buf_reader = BufReader::new(stream);
 
         // should theoretically grab the 'GET path HTTP/1.1\r\n' 
@@ -229,8 +222,8 @@ impl Request {
         let request_line = HTTPRequestLine::from_str(&request_line_string)?;
 
         match request_line.get_kind() {
-            HTTPType::Get => Ok(Self::GetRequest(GETRequest::new(request_line, ip)?)),
-            HTTPType::Post => Ok(Self::POSTRequest(POSTRequest::new(request_line, buf_reader, ip)?)),
+            HTTPType::Get => Ok(Self::GetRequest(GETRequest::new(request_line, buf_reader)?)),
+            HTTPType::Post => Ok(Self::POSTRequest(POSTRequest::new(request_line, buf_reader)?)),
         }
     }
 
@@ -261,7 +254,7 @@ pub struct POSTRequest {
 }
 
 impl POSTRequest {
-    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>, ip: IpAddr) -> Result<Self, HTTPError>{
+    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>) -> Result<Self, HTTPError>{
         let (path, query_string) = match line.path.split_once("?") {
             Some((left, right)) => {
                 let queries = process_query_string(right)?;
@@ -271,11 +264,12 @@ impl POSTRequest {
         };
 
 
-        let (header, mut reader) = split_post_request(reader)?;
+        let (header, mut reader) = split_header(reader)?;
 
         let mut host = String::new();
         let mut content_type = ContentType::PlainText;
         let mut content_length = 0;
+        let mut ip_str = "";
 
         for line in header.lines() {
             if line.starts_with("Content-Type: ") {
@@ -287,8 +281,15 @@ impl POSTRequest {
                     Err(_) => return Err(HTTPError::InvalidContentLength),
                     Ok(num) => num,
                 };
+            } else if line.starts_with("X-Forwarded-For: ") {
+                ip_str = &line[17..];
             }
         }
+
+        let ip = match IpAddr::from_str(ip_str) {
+            Ok(ip) => ip,
+            Err(_) => return Err(HTTPError::InvalidHeader),
+        };
 
         // read content length
         let mut content: Vec<u8> = Vec::with_capacity(content_length);
@@ -354,8 +355,8 @@ fn process_query_string(queries: &str) -> Result<HashMap<String, String>, HTTPEr
     map
 }
 
-fn split_post_request(mut reader: BufReader<&mut TcpStream>) -> Result<(String, BufReader<&mut TcpStream>), HTTPError> {
-    // some how split the body from the header
+fn split_header(mut reader: BufReader<&mut TcpStream>) -> Result<(String, BufReader<&mut TcpStream>), HTTPError> {
+        // some how split the body from the header
     // this will be painfull and horrible
     let mut buf = Vec::new();
     loop {
@@ -395,7 +396,7 @@ pub struct GETRequest {
 }
 
 impl GETRequest {
-    pub fn new(line: HTTPRequestLine, ip: IpAddr) -> Result<Self, HTTPError> {
+    pub fn new(line: HTTPRequestLine, reader: BufReader<&mut TcpStream>) -> Result<Self, HTTPError> {
         let (path, query_string) = match line.path.split_once("?") {
             Some((left, right)) => {
                 let queries = process_query_string(right)?;
@@ -403,6 +404,22 @@ impl GETRequest {
             },
             None => (line.path, HashMap::new())
         };
+
+        let (header, _) = split_header(reader)?;
+
+        let mut ip_str = "";
+
+        for line in header.lines() {
+            if line.starts_with("X-Forwarded-For: ") {
+                ip_str = &line[17..];
+            }
+        }
+
+        let ip = match IpAddr::from_str(ip_str) {
+            Ok(ip) => ip,
+            Err(_) => return Err(HTTPError::InvalidHeader),
+        };
+
         Ok(Self {
             path,
             query_string,
