@@ -288,7 +288,7 @@ impl POSTRequest {
 
         let ip = match IpAddr::from_str(ip_str) {
             Ok(ip) => ip,
-            Err(_) => return Err(HTTPError::InvalidHeader),
+            Err(_) => Err(HTTPError::FailedToObtainIP)?,
         };
 
         // read content length
@@ -417,7 +417,7 @@ impl GETRequest {
 
         let ip = match IpAddr::from_str(ip_str) {
             Ok(ip) => ip,
-            Err(_) => return Err(HTTPError::InvalidHeader),
+            Err(_) => Err(HTTPError::FailedToObtainIP)?,
         };
 
         Ok(Self {
