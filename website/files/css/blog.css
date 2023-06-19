@@ -1,3 +1,13 @@
+pre {
+    background-color: black !important; /* overides prisim */
+    border: none !important;
+}
+
+code {
+    background-color: black !important; /* overides prisim */
+    border: none !important;
+}
+
 .body {
     height: auto;
 }
@@ -15,9 +25,9 @@
     background-color: #3F4045;
     border-radius: 15px;
     padding: 30px;
-    padding-left: 40px;
-    padding-right: 40px;
-    width: min(765px, 100%);
+    padding-left: 1em;
+    padding-right: 1em;
+    width: min(765px, calc(100% - 2em));
     position: relative;
 }
 
@@ -193,4 +203,9 @@
 
 .blog-publish-date {
     margin-top: 2px;
+}
+
+.blog-content p {
+    padding-top: 10px;
+    padding-bottom: 10px;
 }

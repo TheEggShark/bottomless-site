@@ -21,10 +21,13 @@ async function fetch2posts() {
         const data = cbmds[i];
         const clone = miniBlogTemplate.content.firstElementChild.cloneNode(true);
 
+        const link = clone.getElementsByTagName("a")[0];
         const title_text = clone.getElementsByTagName("h3")[0];
         const date_text = clone.getElementsByTagName("p")[0];
         const intro_text = clone.getElementsByTagName("p")[1];
 
+        link.href = data.url;
+        console.log(link);
         title_text.innerText = data.title;
         intro_text.innerText = data.intro;
         date_text.innerText = `${data.publish_date.getMonth()+1}/${data.publish_date.getDate()}/${data.publish_date.getFullYear()}`;

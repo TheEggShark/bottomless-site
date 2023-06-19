@@ -15,6 +15,7 @@ fn main() {
         .filter(|(data, _)| data.is_ok())
         .map(|(data, path)| (data.unwrap(), path))
         .for_each(|(data, mut path)| {
+            println!("{:?}", data);
             path.set_extension("cbmd");
             data.write_to_file(&path).unwrap();
         });

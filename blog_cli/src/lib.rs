@@ -28,7 +28,13 @@ impl Cbmd {
     }
 
     pub fn from_html_file(path: &Path) -> Result<Self, HTMLError> {
-        let tag_tree = parse_file(path)?;
+        let tag_tree = match parse_file(path) {
+            Err(e) => {
+                println!("{e}");
+                Err(e)?
+            },
+            Ok(tt) => tt,
+        };
         let meta_tags = flaten_tree(tag_tree)
             .into_iter()
             .filter(|t| t.get_name() == "meta")

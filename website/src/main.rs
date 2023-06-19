@@ -252,12 +252,16 @@ fn api_request(apis: Arc<ApiRegister>, stream: &mut TcpStream, request: Request)
         return;
     }
 
-    apis.add_request(request.get_path(), request.get_ip());
-
     let api = apis.get_api(path);
     let response = match api {
-        None => Response::empty_404(),
-        Some(api) => api.run(request),
+        None => {
+            apis.add_gloabal_request(request.get_ip());
+            Response::empty_404()
+        },
+        Some(api) => {
+            apis.add_request(request.get_path(), request.get_ip());
+            api.run(request)
+        },
     };
 
     stream.write_all(&response.into_bytes()).unwrap_or_else(log_write_error);

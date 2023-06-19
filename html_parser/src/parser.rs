@@ -128,6 +128,7 @@ impl Parser {
                     })?;
                 }
                 _ => {
+                    println!("{:?}\n{:?}", base_tag, non_text_token);
                     unreachable!()
                 }
             }
@@ -242,7 +243,7 @@ impl Parser {
             self.peek().get_type(),
             Bang | Identifier | Equal | String | WhiteSpace | Doctype |
             GreaterThan | Area | Base | Br | Col | Embed | Hr | Img | Input |
-            Link | Meta | Param | Source | Track | Wbr | SomethingElse
+            Link | Meta | Param | Source | Track | Wbr | SomethingElse | ForwardSlash
         ) {
             let token = self.advance();
             let text_of_token = token.get_str_representation(source);

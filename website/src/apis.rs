@@ -73,6 +73,11 @@ impl ApiRegister {
         writer.get_mut(&user_ip).unwrap().add_request(api_path);
     }
 
+    pub fn add_gloabal_request(&self, user_ip: IpAddr) {
+        let mut writer = self.users.write().unwrap();
+        writer.get_mut(&user_ip).unwrap().add_gloabal_request();
+    }
+
     pub fn add_user(&self, user_ip: IpAddr) {
         let limits = self.apis.iter()
             .map(|(k, v)| {
@@ -124,7 +129,10 @@ impl User {
             return false;
         }
 
-        return self.limits.get_mut(api_path).unwrap().check_limit();
+        match self.limits.get_mut(api_path) {
+            None => true,
+            Some(limiter) => limiter.check_limit()
+        }
     }
 
     pub fn add_many(&mut self, api_limits: Vec<(RateLimiter, &str)>) {
@@ -138,6 +146,10 @@ impl User {
         self.limits.iter()
             .map(|(_, limiter)| limiter.get_recent_request_count())
             .sum()
+    }
+
+    pub fn add_gloabal_request(&mut self) {
+        self.limits.get_mut("global").unwrap().add_request(Instant::now());
     }
 
     pub fn add_request(&mut self, api_path: &str) {
