@@ -42,7 +42,7 @@ function create_cbmd_from_buffer(buffer) {
         cursor += 8;
         const publish_date = toDateTime(publish_ts);
 
-        cbmds.push(new Cbmd(title, intro, url_text, publish_date))
+        cbmds.push(new Cbmd(title, intro, url_text, publish_date));
     }
 
     return cbmds;

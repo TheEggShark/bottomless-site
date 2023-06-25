@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charles Crabtree</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/blog.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script src="../js/prism.js"></script>
+    <meta title="Complaints about the HTML specifcation">
+    <meta publish-date="06/25/2023">
+    <meta intro="I wrote a custom HTML parser and mostly regret doing so.">
+</head>
+<body>
+    <div class="blog-flex">
+        <div class="blog-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blueprint icon" class="blog-icon"></a>
+            </div>
+            <h1 class="blog-title">Complaints about the HTML specifcation</h1>
+            <p1 class="blog-publish-date">06/25/2023</p1>
+            <h3>I wrote a custom HTML parser and mostly regret doing so.</h3>
+            <hr class="blog-break">
+            <div class="blog-content">
+                <p>Why did I write an HTML parser? I'm not trying to make a web browser.</p>
+                <p>
+                    It started with the problem of dynamically loading in blog posts. How do I "post" one?
+                    How do I know when it was posted, the title, etc?  
+                </p>
+                <p>
+                    The obvious answer is to just use a Content Management System, but my stubbornness refused
+                    to let me do this. So instead, I decided to create my own metadata file called CBMD. The
+                    specification of CBMD is simple as the file is small and stores very little information.
+                    The first byte contains the length of the title, followed by the title. Then, another
+                    byte contains the length of the subtitle. One byte contains the URL path length, followed
+                    by the URL. Finally, the last 8 bytes contain the seconds since the UNIX epoch that the
+                    post was published on.
+                </p>
+                <img src="../images/cbmd diagram.svg" alt="diagram demostrating the byte layout of metadata file">
+                <p>
+                    While having raw bytes and serialized data is nice, it complicates the process of producing
+                    and editing the files. A standard like JSON is human readable and editable. Meanwhile,
+                    the only way to manually edit mine would be through a hex editor.
+                </p>
+                <p>
+                    This problem necessitated the creation of a tool designed to create these metadata files.
+                </p>
+                <p>
+                    But how to go about this? Manually insert data? Extract the data from the blog HTML? Create a
+                    GUI to generate files?
+                </p>
+                <p>
+                    I decided to extract the data straight from the HTML files, which means I need to parse
+                    HTML somehow. My solution involved having each blog file having metadata like:
+                </p>
+                <pre><code class="language-html">&lt;meta title="Best Ways to Live">
+&lt;meta publish-date="01/01/1970">
+&lt;meta intro="you can live by breathing"></code></pre>
+                <p>
+                    Now, I need to be able to extract this data somehow. A simple solution could be to search
+                    the file for "intro" and then take all the data inside the quotation marks. This solution
+                    could have many flaws. If the string `introduction` exists it would take that data and
+                    be incorrect. In order to be able to parse HTML no matter how it's formatted I decided to
+                    just make a full HTML parser.
+                </p>
+                <p>
+                    My design is inspired by Jlox or the language created in the book
+                    <a href="https://craftinginterpreters.com/" target="_blank" rel="noopener noreferrer"><i>Crafting Interpreters</i></a>
+                    by Robert Nystrom.
+                    Unlike Jlox, mine stops after the parsing step as there is no way to run/interpret HTML
+                    code. My parser still does every step like a real interpreter/parser would by turning
+                    the text into tokens. Then the tokens are parsed into meaningful data like the tags and
+                    their children and attributes.
+                </p>
+                <p>
+                    I mostly winged my implementation based on my loose knowledge of the HTML syntax and grammar.
+                    This means that mine does not follow the exact specification. It still worked for my needs and
+                    has passed all of my use cases. Although in certain situations it will not work. Take:
+                </p>
+                <pre><code class="language-html">&lt;script>
+    if (a&lt;2) {
+        console.log("a is less than 2");
+    }
+&lt;/script></code></pre>
+                <p>
+                    My parser would see a tag starting inside the if block and that would break the parser. I
+                    don't see my blogs containing inline scripts so I have swept this issue under the rug.
+                </p>
+                <p>
+                    Now, let's talk about the official HTML specification, specifically the parsing errors
+                    section found
+                    <a href="https://html.spec.whatwg.org/multipage/parsing.html#parsing" target="_blank" rel="noopener noreferrer">here</a>.
+                    Most of the errors are pretty reasonable, like EOF (End Of File) inside comments, tag, doctype,
+                    etc. Finding an EOF early can break a lot of things and there is not much a parser can do to
+                    recover in that situation other than tell the user. 
+                </p>
+                <p>
+                    My problems begin with the error "abrupt-closing-of-empty-comment." Which states that an empty
+                    comment that ends early (not having the full --&gt;) should be treated like it was closed
+                    properly. Or the "incorrectly-closed-comment" error that says if a comment is closed with --!&gt;
+                    it should be treated as being closed correctly.
+                </p>
+                <p>
+                    What these "errors" tell is that they aren't errors. There are just multiple ways of closing
+                    comments. If an HTML parser that is completely to specification will just ignore these "errors"
+                    and function as expected, then there are no errors present.
+                </p>
+                <p>
+                    Another of these "errors" is the "missing-whitespace-between-attributes." Like its name says
+                    that not having whitespace between attributes name is an error. Code like:
+                </p>
+                <pre><code class="language-html">&lt;link rel="stylesheet"href="../css/index.css"></code></pre>
+                <p>
+                    would be considered incorrect and full of errors. A strange consequence of this means that
+                    every minified page is filled with errors everywhere. Yet the specification says to pretend
+                    there is white space once again giving a fake error. Several errors follow the same
+                    convention of "missing" whitespace. Errors like "missing-whitespace-before-doctype-name"
+                    and "missing-whitespace-between-doctype-public-and-system-identifiers" all say to
+                    pretend the whitespace exists.
+                </p>
+                <p>
+                    I understand having style guidelines for a programming language. Nearly every language has
+                    one. Rust likes variable names in snake_case while JavaScript prefers variable names to be
+                    in camelCase. The difference between having whitespace and not having whitespace is a style
+                    preference especially when the parser is told to ignore it. This makes it optional whitespace
+                    and up to the personal preference of the programmer. Having a non-conventional case style
+                    would not be considered an error and doing <code class="language-rust">let x=10;</code>
+                    be considered an error compared to <code class="language-rust">let x = 10;</code> in Rust.
+                </p>
+                <p>
+                    Admittedly this is a super minor complaint that doesn't even matter. I already said mine
+                    wasn't up to specification and I have no plans to make it up to specification. Only the
+                    people developing browsers, scrapers or any other HTML parser will read or care about
+                    the HTML specification. I just personally don't like how some of these "errors" are
+                    not truly errors. Join me next time when I create another over-engineered solution and
+                    find something new to complain about.
+                </p>
+                <p>
+                    As a little bonus here is the awful code that goes into parsing byte arrays in JavaScript.
+                    I'm sure there are better ways to do it, but I rarely use JavaScript so I don't know how to.
+                </p>
+                <pre><code class="language-javascript">function create_cbmd_from_buffer(buffer) {
+    const cbmds = [];
+    const pain = new DataView(buffer);
+    let cursor = 0;
+
+    const num_cards = pain.getUint8(cursor, true);
+    console.log(num_cards);
+    cursor++;
+
+    for (let i = 0; i &lt; num_cards; i++) {
+        const first_item_len = pain.getUint16(cursor, true);
+        cursor += 2;
+
+        const text_len = pain.getUint8(cursor, true);
+        cursor++;
+        const text_slice = buffer.slice(cursor, cursor+text_len);
+        const title = decoder.decode(text_slice);
+        cursor += text_len;
+
+        const intro_len = pain.getUint8(cursor, true);
+        cursor++;
+        const intro = decoder.decode(buffer.slice(cursor, cursor+intro_len));
+        cursor += intro_len;
+
+        const url_len = pain.getUint8(cursor, true);
+        cursor++;
+        const url_text = decoder.decode(buffer.slice(cursor, cursor + url_len));
+        cursor += url_len;
+
+        const publish_ts = get_u64(pain, cursor);
+        cursor += 8;
+        const publish_date = toDateTime(publish_ts);
+
+        cbmds.push(new Cbmd(title, intro, url_text, publish_date));
+    }
+                
+    return cbmds;
+}</code></pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

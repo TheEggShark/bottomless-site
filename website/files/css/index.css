@@ -182,6 +182,14 @@ html, body {
     height: 100px;
 }
 
+.mini-card-title {
+    font-size: 18px;
+}
+
+.mini-card-text {
+    font-size: 14px;
+}
+
 .front-page-item {
     height: 400px;
     width: min(300px, 95%);
