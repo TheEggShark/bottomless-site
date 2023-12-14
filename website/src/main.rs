@@ -98,7 +98,7 @@ fn process_get_request(request: Request, apis: Arc<ApiRegister>, stream: &mut Tc
     let path = Path::new(path);
     let request_type = match path.parent().and_then(Path::to_str) {
         Some("/") => {
-            if path == Path::new("/favicon.ico") {
+            if path == Path::new("/favicon.ico") || path.extension().is_some() {
                 RequestType::OtherFile
             } else {
                 RequestType::Html
@@ -198,6 +198,8 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
         Some("png") => ContentType::Image(ImageType::Png),
         Some("svg") => ContentType::Image(ImageType::Svg),
         Some("ico") => ContentType::Image(ImageType::XIcon),
+        Some("wasm") => ContentType::Wasm,
+        Some("wgsl") => ContentType::Wgsl,
         ext => {
             println!("Unsuported extention: {:?}", ext);
             let response = Response::new_400_error(HTTPError::InvalidPath).into_bytes();

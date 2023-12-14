@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-// use std::fmt::Result;
+use std::fmt::write;
 use std::net::{TcpStream, IpAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::str::FromStr;
@@ -148,6 +148,8 @@ pub enum ContentType {
     Html,
     PlainText,
     OctetStream, // should be raw binary
+    Wasm,
+    Wgsl,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -170,6 +172,8 @@ impl std::str::FromStr for ContentType {
             "text/html" => Ok(Self::Html),
             "text/plain" => Ok(Self::PlainText),
             "application/octet-stream" => Ok(Self::OctetStream),
+            "application/wasm" => Ok(Self::Wasm),
+            "text/wgsl" => Ok(Self::Wgsl),
             _ => Err(HTTPError::InvalidContentType),
         }
     }
@@ -186,6 +190,8 @@ impl std::fmt::Display for ContentType {
             Self::Html => write!(f, "text/html"),
             Self::PlainText => write!(f, "text/plain"),
             Self::OctetStream => write!(f, "application/octet-stream"),
+            Self::Wasm => write!(f, "application/wasm"),
+            Self::Wgsl => write!(f, "text/wgsl"),
         }
     }
 }
