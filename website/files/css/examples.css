@@ -71,8 +71,26 @@
 }
 
 .play-button {
-    padding: 15px;
-    border-radius: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #b49b65;
+    border: solid 3px white;
+    font-size: 30px;
+    color: white;
+    text-align: center;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    text-decoration: none;
+}
+
+.play-button:hover {
+    cursor: pointer;
+}
+
+.dark {
+    color: black;
+    border-color: black;
 }
 
 .play-button-inner {
@@ -82,10 +100,18 @@
     gap: 10px;
 }
 
-.arrow-right {
-    width: 0; 
-    height: 0; 
-    border-top: 10px solid transparent;
-    border-bottom: 10px solid transparent;
-    border-left: 10px solid green;
+.no-decoration {
+    text-decoration: none;
+}
+
+.no-decoration:visited {
+    text-decoration: none;
+}
+
+.no-decoration:hover {
+    text-decoration: none;
+}
+
+.no-decoration:active {
+    text-decoration: none;
 }

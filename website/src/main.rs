@@ -104,9 +104,10 @@ fn process_get_request(request: Request, apis: Arc<ApiRegister>, stream: &mut Tc
                 RequestType::Html
             }
         },
-        Some("/blog") => RequestType::Html, // setting up for the blog folder
         Some("/api") => RequestType::Api,
         None => RequestType::Html, // this is the index.html
+        // any other html file thats not in the html folder
+        Some(_) if path.extension().is_none() => RequestType::Html, 
         Some(_) => RequestType::OtherFile,
     };
     println!("{:?}, {:?}", path, request_type);
