@@ -143,6 +143,7 @@ impl Response {
 #[derive(Clone, Copy, Debug)]
 pub enum ContentType {
     Image(ImageType),
+    Font(FontType),
     Css,
     JavaScript,
     Html,
@@ -150,6 +151,16 @@ pub enum ContentType {
     OctetStream, // should be raw binary
     Wasm,
     Wgsl,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum FontType {
+    Collection,
+    Otf,
+    Sfnt,
+    Ttf,
+    Woff,
+    Woff2,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -185,6 +196,12 @@ impl std::fmt::Display for ContentType {
             Self::Image(ImageType::Png) => write!(f, "image/png"),
             Self::Image(ImageType::Svg) => write!(f, "image/svg+xml"),
             Self::Image(ImageType::XIcon) => write!(f, "image/x-icon"),
+            Self::Font(FontType::Collection) => write!(f, "font/collection"),
+            Self::Font(FontType::Otf) => write!(f, "font/otf"),
+            Self::Font(FontType::Sfnt) => write!(f, "font/sfnt"),
+            Self::Font(FontType::Ttf) => write!(f, "font/ttf"),
+            Self::Font(FontType::Woff) => write!(f, "font/woff"),
+            Self::Font(FontType::Woff2) => write!(f, "font/woff2"),
             Self::Css => write!(f, "text/css"),
             Self::JavaScript => write!(f, "text/javascript"),
             Self::Html => write!(f, "text/html"),

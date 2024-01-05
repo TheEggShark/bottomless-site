@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example Template</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/example-page.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script defer src="../js/prism.js"></script>
+</head>
+<body>
+    <div class="example-flex">
+        <div class="example-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
+            <h1>Title</h1>
+            <!-- rember to give this an ID so BP doesnt append something :3 -->
+            <canvas id="Testing Triangle">
+                <!-- This is where the game goes -->
+            </canvas>
+            <div class="example-text">
+                <p>
+                    <!-- Feature Explanation -->
+                    This is the bare minimum needed to render a texture in Bottomless-Pit.
+                    For more complex texture interactions check the <a href="./rectangles">rectangles</a>
+                    example
+                </p>
+                <h4>main.rs:</h4>
+                <!-- Rust code goes here copy and paste for optional wgsl or other files -->
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::input::MouseKey;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::texture::Texture;
+use bottomless_pit::{engine_handle::EngineBuilder, *};
+use colour::Colour;
+use vectors::Vec2;
+
+fn main() {
+    let mut engine = EngineBuilder::new()
+        .set_window_title("Testing Triangle")
+        .with_resolution((400, 400))
+        .build()
+        .unwrap();
+
+    let texture = Texture::new(&mut engine, "examples/bplogo.png");
+
+    let texture = MaterialBuilder::new()
+        .add_texture(texture)
+        .build(&mut engine);
+    let defualt = MaterialBuilder::new().build(&mut engine);
+
+    let s = TextureExample {
+        current: texture,
+        other: defualt,
+        pos: Vec2 { x: 0.0, y: 0.0 },
+    };
+
+    engine.run(s);
+}
+
+struct TextureExample {
+    current: Material,
+    other: Material,
+    pos: Vec2&lt;f32&gt;,
+}
+
+impl Game for TextureExample {
+    fn render&lt;'pass, 'others&gt;(
+        &'others mut self,
+        mut render_handle: RenderInformation&lt;'pass, 'others&gt;,
+    ) where
+        'others: 'pass,
+    {
+        self.current.add_rectangle(
+            Vec2 { x: 0.0, y: 0.0 },
+            Vec2 { x: 400.0, y: 400.0 },
+            Colour::WHITE,
+            &render_handle,
+        );
+        self.current.draw(&mut render_handle);
+    }
+
+    fn update(&mut self, engine_handle: &mut engine_handle::Engine) {
+        let dt = engine_handle.get_frame_delta_time();
+        println!("{}", dt);
+        if engine_handle.is_mouse_key_pressed(MouseKey::Left) {
+            std::mem::swap(&mut self.other, &mut self.current);
+        }
+        self.pos.x += 100.0 * dt;
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // replace with the path to the actual example
+        import init from '../examples/texture.js';
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+</body>
+</html>

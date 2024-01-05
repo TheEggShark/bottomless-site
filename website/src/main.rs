@@ -9,7 +9,7 @@ use std::{
     env, thread,
 };
 use blog_cli::Cbmd;
-use website::thread::ThreadPool;
+use website::{thread::ThreadPool, http_types::FontType};
 use website::apis::ApiRegister;
 use website::types::{
     ContentType, RequestType,
@@ -199,6 +199,7 @@ fn file_request(path: &Path, stream: &mut TcpStream) {
         Some("png") => ContentType::Image(ImageType::Png),
         Some("svg") => ContentType::Image(ImageType::Svg),
         Some("ico") => ContentType::Image(ImageType::XIcon),
+        Some("ttf") => ContentType::Font(FontType::Ttf),
         Some("wasm") => ContentType::Wasm,
         Some("wgsl") => ContentType::Wgsl,
         ext => {
