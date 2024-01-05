@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rectangle Example</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/example-page.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script defer src="../js/prism.js"></script>
+</head>
+<body>
+    <div class="example-flex">
+        <div class="example-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
+            <h1>Rectangles</h1>
+            <!-- rember to give this an ID so BP doesnt append something :3 -->
+            <canvas id="Bottomless-Pit Game">
+                <!-- This is where the game goes -->
+            </canvas>
+            <div class="example-text">
+                <p>
+                    <!-- Feature Explanation -->
+                    This is a showcase of all the ways you can manipulate rectanges. From moving them,
+                    rotating them, adding a texture, setting UV, setting colour, or even having a custom
+                    4-pointed polygon.
+                </p>
+                <h4>main.rs:</h4>
+                <!-- Rust code goes here copy and paste for optional wgsl or other files -->
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::{Engine, EngineBuilder};
+use bottomless_pit::input::MouseKey;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::texture::Texture;
+use bottomless_pit::vectors::Vec2;
+use bottomless_pit::Game;
+
+fn main() {
+    let mut engine = EngineBuilder::new()
+        .set_clear_colour(Colour::BLACK)
+        .build()
+        .unwrap();
+
+    let texture = Texture::new(&mut engine, "examples/bplogo.png");
+
+    let texture_material = MaterialBuilder::new()
+        .add_texture(texture)
+        .build(&mut engine);
+    let regular_material = MaterialBuilder::new().build(&mut engine);
+
+    let pos = Position {
+        pos: Vec2 { x: 0.0, y: 0.0 },
+        regular_material,
+        texture_material,
+    };
+
+    engine.run(pos);
+}
+
+struct Position {
+    pos: Vec2&lt;f32&gt;,
+    regular_material: Material,
+    texture_material: Material,
+}
+
+impl Game for Position {
+    fn render&lt;'pass, 'others&gt;(
+        &'others mut self,
+        mut render_handle: RenderInformation&lt;'pass, 'others&gt;,
+    ) where
+        'others: 'pass,
+    {
+        let defualt_size = Vec2 { x: 50.0, y: 50.0 };
+        self.regular_material.add_rectangle(
+            Vec2 { x: 0.0, y: 0.0 },
+            defualt_size,
+            Colour::RED,
+            &render_handle,
+        );
+        self.regular_material.add_rectangle(
+            self.pos,
+            Vec2 { x: 100.0, y: 100.0 },
+            Colour::RED,
+            &render_handle,
+        );
+        self.texture_material.add_rectangle(
+            Vec2 { x: 0.0, y: 50.0 },
+            defualt_size,
+            Colour::WHITE,
+            &render_handle,
+        );
+        self.texture_material.add_rectangle_with_uv(
+            Vec2 { x: 0.0, y: 100.0 },
+            defualt_size,
+            Vec2 { x: 311.0, y: 311.0 },
+            Vec2 { x: 311.0, y: 311.0 },
+            Colour::WHITE,
+            &render_handle,
+        );
+        self.regular_material.add_rectangle_with_rotation(
+            Vec2 { x: 0.0, y: 150.0 },
+            defualt_size,
+            Colour::GREEN,
+            45.0,
+            &render_handle,
+        );
+
+        let points = [
+            Vec2 { x: 0.0, y: 300.0 },
+            Vec2 { x: 80.0, y: 290.0 },
+            Vec2 { x: 100.0, y: 400.0 },
+            Vec2 { x: 60.0, y: 400.0 },
+        ];
+        let uvs = [
+            Vec2 { x: 0.0, y: 0.0 },
+            Vec2 { x: 1.0, y: 0.0 },
+            Vec2 { x: 1.0, y: 1.0 },
+            Vec2 { x: 0.0, y: 1.0 },
+        ];
+
+        self.regular_material
+            .add_custom(points, uvs, 0.0, Colour::RED, &render_handle);
+
+        self.texture_material.draw(&mut render_handle);
+        self.regular_material.draw(&mut render_handle);
+    }
+
+    fn update(&mut self, engine_handle: &mut Engine) {
+        let dt = engine_handle.get_frame_delta_time();
+        self.pos.x += 100.0 * dt;
+        if engine_handle.is_mouse_key_pressed(MouseKey::Left) {
+            let new_texture = Texture::new(engine_handle, "examples/eggshark.png");
+            self.texture_material.change_texture(new_texture);
+        }
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // replace with the path to the actual example
+        import init from '../examples/rectangles.js';
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ngon Example</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/example-page.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script defer src="../js/prism.js"></script>
+</head>
+<body>
+    <div class="example-flex">
+        <div class="example-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
+            <h1>Ngon</h1>
+            <!-- rember to give this an ID so BP doesnt append something :3 -->
+            <canvas id="Bottomless-Pit Game">
+                <!-- This is where the game goes -->
+            </canvas>
+            <div class="example-text">
+                <p>
+                    <!-- Feature Explanation -->
+                    This example is meant to show off a simple shader using the sin of time 
+                    to offset the y values of a regular n-gon. This is shows off how you can 
+                    easily render regular n-gons with Bottomless-Pit.
+                </p>
+                <h4>main.rs:</h4>
+                <!-- Rust code goes here copy and paste for optional wgsl or other files -->
+<pre class="example-code-block"><code class="language-rust">use std::f32::consts::PI;
+
+use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::{Engine, EngineBuilder};
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::shader::Shader;
+use bottomless_pit::shader::UniformData;
+use bottomless_pit::vectors::Vec2;
+use bottomless_pit::Game;
+use encase::ShaderType;
+
+fn main() {
+    let mut engine = EngineBuilder::new()
+        .with_resolution((500, 500))
+        .remove_vsync()
+        .set_clear_colour(Colour::BLACK)
+        .build()
+        .unwrap();
+
+    let data = Time {
+        time: 0.0,
+        _pading: 0.0,
+        _padding2: 0.0,
+        _padding4: 0.0,
+    };
+
+    let uniform_data = UniformData::new(&engine, &data);
+
+    let mouse_shader = Shader::new("examples/sinewaves.wgsl", true, &mut engine);
+
+    let regular_material = MaterialBuilder::new()
+        .set_uniform(&uniform_data)
+        .set_shader(mouse_shader)
+        .build(&mut engine);
+
+    let pos = Position {
+        regular_material,
+        time: 0.0,
+    };
+
+    engine.run(pos);
+}
+
+#[derive(ShaderType)]
+struct Time {
+    time: f32,
+    _pading: f32,
+    _padding2: f32,
+    _padding4: f32,
+}
+
+struct Position {
+    regular_material: Material,
+    time: f32,
+}
+
+impl Game for Position {
+    fn render&lt;'pass, 'others&gt;(
+        &'others mut self,
+        mut render_handle: RenderInformation&lt;'pass, 'others&gt;,
+    ) where
+        'others: 'pass,
+    {
+        self.regular_material.add_regular_n_gon(
+            120,
+            200.0,
+            Vec2 { x: 250.0, y: 250.0 },
+            Colour::BLUE,
+            &render_handle,
+        );
+
+        self.regular_material.draw(&mut render_handle);
+    }
+
+    fn update(&mut self, engine_handle: &mut Engine) {
+        let dt = engine_handle.get_frame_delta_time();
+        self.time = (self.time + dt) % (32.0 * PI);
+        self.regular_material
+            .update_uniform_data(&self.time, &engine_handle);
+    }
+}</code></pre>
+                <h4>sinewaves.wgsl</h4>
+<pre class="example-code-block"><code class="language-wgsl">struct CameraUniform {
+    view_proj: mat4x4&lt;f32&gt;,
+}
+
+// now why does this struct look like this?
+// its becuase we need 16bit alignment on web
+struct Time {
+    time: f32,
+    _junk: f32,
+    _junk1: f32,
+    _junk4: f32,
+}
+
+@group(1) @binding(0)
+var&lt;uniform&gt; camera: CameraUniform;
+
+@group(2) @binding(0)
+var&lt;uniform&gt; time: Time;
+
+struct VertexInput {
+    @location(0) position: vec3&lt;f32&gt;,
+    @location(1) tex_coords: vec2&lt;f32&gt;,
+    @location(2) colour: vec4&lt;f32&gt;
+}
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4&lt;f32&gt;,
+    @location(0) tex_coords: vec2&lt;f32&gt;,
+    @location(1) colour: vec4&lt;f32&gt;,
+}
+
+// vertex shader
+@vertex
+fn vs_main(model: VertexInput) -&gt; VertexOutput {
+    var out: VertexOutput;
+    out.tex_coords = model.tex_coords;
+    out.clip_position = camera.view_proj * vec4&lt;f32&gt;(
+        model.position.x,
+        model.position.y + sin(time.time + model.position.x * 12.0)/12.0,
+        model.position.z,
+        1.0
+    ); // the vectors on the right the matrices go on the left in order of importance
+    out.colour = model.colour;
+    return out;
+}
+
+
+// Fragment shader
+
+@fragment
+fn fs_main(in: VertexOutput) -&gt; @location(0) vec4&lt;f32&gt; {
+    var r: f32 = (sin((in.clip_position.x + time.time * 16.0)/16.0) + 1.0) / 2.0;
+    var b: f32 = (sin((in.clip_position.y + time.time * 16.0)/16.0) + 1.0) / 2.0;
+    var g: f32 = (r + b) / 2.0;
+    return vec4(r, g, b, 1.0);
+}</code></pre>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // replace with the path to the actual example
+        import init from '../examples/ngon.js';
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+</body>
+</html>

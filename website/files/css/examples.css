@@ -11,9 +11,9 @@
     background-color: #3F4045;
     border-radius: 15px;
     padding: 30px;
-    padding-left: 40px;
-    padding-right: 40px;
-    width: min(1000px, 100%);
+    padding-left: 1em;
+    padding-right: 1em;
+    width: min(1000px, calc(100% - 2em));
     text-align: center;
     position: relative;
 }

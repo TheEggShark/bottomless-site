@@ -1,0 +1,28 @@
+.example-flex {
+    color: #FCFCFC;
+    margin: 0;
+    display: flex;
+    margin-top: clamp(4px, 10vh, 400px);
+    margin-bottom: clamp(4px, 10vh, 400px);
+    justify-content: center;
+}
+
+.example-wrapper {
+    background-color: #3F4045;
+    border-radius: 15px;
+    padding: 30px;
+    padding-left: 1em;
+    padding-right: 1em;
+    width: min(1000px, calc(100% - 2em));
+    text-align: center;
+    position: relative;
+}
+
+.example-text {
+    text-align: left;
+}
+
+.example-code-block {
+    overflow-y: scroll;
+    height: 400px;
+}

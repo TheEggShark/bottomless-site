@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Example Template</title>
+    <title>Line Example</title>
     <link rel="stylesheet" href="../css/index.css">
     <link rel="stylesheet" href="../css/example-page.css">
     <link rel="stylesheet" href="../css/prism.css">
@@ -17,7 +17,7 @@
                 <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
                 <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
             </div>
-            <h1>Title</h1>
+            <h1>Line</h1>
             <!-- rember to give this an ID so BP doesnt append something :3 -->
             <canvas id="Bottomless-Pit Game">
                 <!-- This is where the game goes -->
@@ -25,22 +25,58 @@
             <div class="example-text">
                 <p>
                     <!-- Feature Explanation -->
-                    Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                    Soluta aliquam deleniti dicta omnis. Ipsum commodi cumque
-                    nihil ducimus officiis vitae nobis officia molestias,
-                    accusamus deleniti dolorum consectetur mollitia quo nam.
+                    A test of the line material and renderer.
                 </p>
                 <h4>main.rs:</h4>
                 <!-- Rust code goes here copy and paste for optional wgsl or other files -->
-<pre class="example-code-block"><code class="language-rust">fn main() {
-    println!("Hello World!");
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::{Engine, EngineBuilder};
+use bottomless_pit::material::LineMaterial;
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::vectors::Vec2;
+use bottomless_pit::Game;
+
+fn main() {
+    let engine = EngineBuilder::new().build().unwrap();
+
+    let line_material = LineMaterial::new(&engine);
+
+    let game = LineExample {
+        material: line_material,
+    };
+
+    engine.run(game);
+}
+
+struct LineExample {
+    material: LineMaterial,
+}
+
+impl Game for LineExample {
+    fn render&lt;'pass, 'others&gt;(
+        &'others mut self,
+        mut render_handle: RenderInformation&lt;'pass, 'others&gt;,
+    ) where
+        'others: 'pass,
+    {
+        self.material.add_line(
+            Vec2 { x: 0.0, y: 0.0 },
+            Vec2 { x: 100.0, y: 100.0 },
+            Colour::WHITE,
+            &render_handle,
+        );
+
+        self.material.draw(&mut render_handle);
+    }
+
+    fn update(&mut self, _engine_handle: &mut Engine) {}
 }</code></pre>
             </div>
         </div>
     </div>
     <script type="module">
         // replace with the path to the actual example
-        import init from '../examples/debug_triangle.js';
+        import init from '../examples/line.js';
         async function run() {
             await init();
         }

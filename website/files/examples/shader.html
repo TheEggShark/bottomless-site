@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shader Example</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/example-page.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script defer src="../js/prism.js"></script>
+</head>
+<body>
+    <div class="example-flex">
+        <div class="example-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
+            <h1>Shader</h1>
+            <!-- rember to give this an ID so BP doesnt append something :3 -->
+            <canvas id="Bottomless-Pit Game">
+                <!-- This is where the game goes -->
+            </canvas>
+            <div class="example-text">
+                <p>
+                    <!-- Feature Explanation -->
+                    You can easily use multiple custom shaders in Bottomless-Pit with diffrent uniforms.
+                    This example features 2 diffrent shaders, one that uses the mouse position to change
+                    the colour of a rectangle. The other shader uses the time to offset the postion by sine
+                    and cosine of time.
+                </p>
+                <h4>main.rs:</h4>
+                <!-- Rust code goes here copy and paste for optional wgsl or other files -->
+<pre class="example-code-block"><code class="language-rust">use std::f32::consts::PI;
+
+use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::{Engine, EngineBuilder};
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::shader::{Shader, UniformData};
+use bottomless_pit::vectors::Vec2;
+use bottomless_pit::Game;
+use encase::ShaderType;
+
+fn main() {
+    let mut engine = EngineBuilder::new()
+        .set_clear_colour(Colour::WHITE)
+        .build()
+        .unwrap();
+
+    let mouse_shader = Shader::new("examples/mouse.wgsl", true, &mut engine);
+
+    let circle_shader = Shader::new("examples/movement.wgsl", true, &mut engine);
+
+    let data = MousePos {
+        x: 0.0,
+        y: 0.0,
+        _junk: 0.0,
+        _padding2: 0.0,
+    };
+
+    let mouse_uniform_data = UniformData::new(&engine, &data);
+
+    // On wasm we need this to be 16 bytes aligned so we have added this instead of
+    // a 0.0_f32
+    let circle_uniform_data = UniformData::new(&engine, &data);
+
+    let mouse_material = MaterialBuilder::new()
+        .set_shader(mouse_shader)
+        .set_uniform(&mouse_uniform_data)
+        .build(&mut engine);
+
+    let circle_material = MaterialBuilder::new()
+        .set_shader(circle_shader)
+        .set_uniform(&circle_uniform_data)
+        .build(&mut engine);
+
+    let defualt_material = MaterialBuilder::new().build(&mut engine);
+
+    let game = ShaderExample {
+        data,
+        mouse_material,
+        circle_material,
+        defualt_material,
+        theta: 0.0,
+    };
+
+    engine.run(game);
+}
+
+#[derive(ShaderType)]
+struct MousePos {
+    x: f32,
+    y: f32,
+    _junk: f32,
+    _padding2: f32,
+}
+
+struct ShaderExample {
+    mouse_material: Material,
+    circle_material: Material,
+    defualt_material: Material,
+    data: MousePos,
+    theta: f32,
+}
+
+impl Game for ShaderExample {
+    fn render&lt;'pass, 'others&gt;(
+        &'others mut self,
+        mut render_handle: RenderInformation&lt;'pass, 'others&gt;,
+    ) where
+        'others: 'pass,
+    {
+        self.mouse_material.add_rectangle(
+            Vec2 { x: 0.0, y: 0.0 },
+            Vec2 { x: 100.0, y: 100.0 },
+            Colour::RED,
+            &render_handle,
+        );
+        self.circle_material.add_rectangle(
+            Vec2 { x: 100.0, y: 100.0 },
+            Vec2 { x: 100.0, y: 100.0 },
+            Colour::RED,
+            &render_handle,
+        );
+        self.defualt_material.add_rectangle(
+            Vec2 { x: 0.0, y: 200.0 },
+            Vec2 { x: 100.0, y: 100.0 },
+            Colour::RED,
+            &render_handle,
+        );
+
+        self.mouse_material.draw(&mut render_handle);
+        self.circle_material.draw(&mut render_handle);
+        self.defualt_material.draw(&mut render_handle);
+    }
+
+    fn update(&mut self, engine_handle: &mut Engine) {
+        let dt = engine_handle.get_frame_delta_time();
+
+        self.theta = (self.theta + dt) % (2.0 * PI);
+
+        let size = engine_handle.get_window_size();
+        let mouse_pos = engine_handle.get_mouse_position();
+
+        let new_data = MousePos {
+            x: mouse_pos.x / size.x as f32,
+            y: mouse_pos.y / size.y as f32,
+            _junk: 0.0,
+            _padding2: 0.0,
+        };
+
+        self.data = new_data;
+        self.mouse_material
+            .update_uniform_data(&self.data, &engine_handle);
+        self.circle_material
+            .update_uniform_data(&self.theta, &engine_handle);
+    }
+}</code></pre>
+                <h4>mouse.wgsl</h4>
+<pre class="example-code-block"><code class="language-wgsl">struct CameraUniform {
+    view_proj: mat4x4&lt;f32&gt;,
+}
+
+struct MousePos {
+    stuff: vec2&lt;f32&gt;,
+    _junk: vec2&lt;f32&gt;,
+}
+
+@group(1) @binding(0)
+var&lt;uniform&gt; camera: CameraUniform;
+
+@group(2) @binding(0)
+var&lt;uniform&gt; mouse: MousePos;
+
+struct VertexInput {
+    @location(0) position: vec3&lt;f32&gt;,
+    @location(1) tex_coords: vec2&lt;f32&gt;,
+    @location(2) colour: vec4&lt;f32&gt;
+}
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4&lt;f32&gt;,
+    @location(0) tex_coords: vec2&lt;f32&gt;,
+    @location(1) colour: vec4&lt;f32&gt;,
+}
+
+// vertex shader
+@vertex
+fn vs_main(model: VertexInput) -&gt; VertexOutput {
+    var out: VertexOutput;
+    out.tex_coords = model.tex_coords;
+    out.clip_position = camera.view_proj * vec4&lt;f32&gt;(model.position, 1.0); // the vectors on the right the matrices go on the left in order of importance
+    return out;
+}
+
+
+// Fragment shader
+
+@fragment
+fn fs_main(in: VertexOutput) -&gt; @location(0) vec4&lt;f32&gt; {
+    let pain = mouse.stuff;
+    return vec4(pain.x, pain.y, 1.0, 1.0);
+}</code></pre>
+                <h4>movement.wgsl:</h4>
+<pre class="example-code-block"><code class="language-wgsl">struct CameraUniform {
+    view_proj: mat4x4&lt;f32&gt;,
+}
+
+struct Time {
+    time: f32,
+    _junk: f32,
+    _junk1: f32,
+    _junk4: f32,
+}
+
+@group(1) @binding(0)
+var&lt;uniform&gt; camera: CameraUniform;
+
+@group(2) @binding(0)
+var&lt;uniform&gt; time: Time;
+
+struct VertexInput {
+    @location(0) position: vec3&lt;f32&gt;,
+    @location(1) tex_coords: vec2&lt;f32&gt;,
+    @location(2) colour: vec4&lt;f32&gt;
+}
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4&lt;f32&gt;,
+    @location(0) tex_coords: vec2&lt;f32&gt;,
+    @location(1) colour: vec4&lt;f32&gt;,
+}
+
+// vertex shader
+@vertex
+fn vs_main(model: VertexInput) -&gt; VertexOutput {
+    var out: VertexOutput;
+    out.tex_coords = model.tex_coords;
+    out.clip_position = camera.view_proj * vec4&lt;f32&gt;(model.position.x + sin(time.time), model.position.y + cos(time.time), model.position.z, 1.0); // the vectors on the right the matrices go on the left in order of importance
+    out.colour = model.colour;
+    return out;
+}
+
+
+// Fragment shader
+
+@fragment
+fn fs_main(in: VertexOutput) -&gt; @location(0) vec4 &lt;f32&gt; {
+    return in.colour;
+}</code></pre>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // replace with the path to the actual example
+        import init from '../examples/shader.js';
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+</body>
+</html>
