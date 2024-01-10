@@ -334,3 +334,19 @@ html, body {
     66% {opacity: 1;}
     100% {opacity: 0;}
 }
+
+.no-decoration {
+    text-decoration: none;
+}
+
+.no-decoration:visited {
+    text-decoration: none;
+}
+
+.no-decoration:hover {
+    text-decoration: none;
+}
+
+.no-decoration:active {
+    text-decoration: none;
+}

@@ -65,6 +65,7 @@
     height: 180px;
     background-repeat: no-repeat;
     background-size: cover;
+    background-color: black;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -98,20 +99,4 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-}
-
-.no-decoration {
-    text-decoration: none;
-}
-
-.no-decoration:visited {
-    text-decoration: none;
-}
-
-.no-decoration:hover {
-    text-decoration: none;
-}
-
-.no-decoration:active {
-    text-decoration: none;
 }

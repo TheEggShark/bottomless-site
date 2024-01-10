@@ -72,3 +72,9 @@
     justify-content: center;
     width: 100%;
 }
+
+.example-button {
+    padding: 10px;
+    background-color: #423841;
+    border-radius: 10px;
+}

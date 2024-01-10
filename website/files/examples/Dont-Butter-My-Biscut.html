@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dont-Butter-My-Biscuit</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/example-page.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script defer src="../js/prism.js"></script>
+</head>
+<body>
+    <div class="example-flex">
+        <div class="example-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
+            <h1>Title</h1>
+            <!-- rember to give this an ID so BP doesnt append something :3 -->
+            <canvas id="Butter My Biscuit!">
+                <!-- This is where the game goes -->
+            </canvas>
+            <div class="example-text">
+                <p>
+                    <!-- Feature Explanation -->
+                    Don't Butter My Buscuit is a game that was made for the 2023 GMTK Game Jam,
+                    whose theme was Roles Reversed. I got the idea from the phrase "well butter my
+                    biscuit!" so you play as a biscuit that does not want to get buttered. You can still
+                    look at the
+                    <a href="https://theeggshark.itch.io/dont-butter-my-biscuit" target="_blank" rel="noopener noreferrer">itch.io</a>
+                    page if you want, it has links to download the original jam version (written in version 
+                    0.1.0 of bottomless-pit). All the art in the game was made by
+                    <a href="https://github.com/freyhoe" target="_blank" rel="noopener noreferrer">Freyhoe</a>.
+                    Please check him out he does alot of work on tetris tools.
+                </p>
+                <h4>main.rs:</h4>
+                <!-- Rust code goes here copy and paste for optional wgsl or other files -->
+<pre class="example-code-block"><code class="language-rust">mod animation;
+mod collision;
+mod enemy;
+mod level;
+mod text;
+mod player;
+
+
+use bottomless_pit::input::MouseKey;
+use bottomless_pit::engine_handle::Engine;
+use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::EngineBuilder;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::texture::Texture;
+use bottomless_pit::vectors::Vec2;
+use level::Level;
+use text::Text;
+
+fn main() {
+    let mut engine = EngineBuilder::new()
+        .set_clear_colour(Colour::BLUE)
+        .set_window_title("Butter My Biscuit!")
+        .unresizable()
+        .with_resolution((800, 800))
+        .build()
+        .unwrap();
+
+    let biscut = Biscut::new(&mut engine);
+
+    engine.run(biscut);
+}
+
+struct Biscut {
+    text: Vec&lt;Text&gt;,
+    bg_texture: Material,
+    logo: Material,
+    plain_mat: Material,
+    level: Level,
+    state: MainState,
+}
+
+impl bottomless_pit::Game for Biscut {
+    fn render&lt;'p, 'o&gt;(&'o mut self, mut render_handle: RenderInformation&lt;'p, 'o&gt;) where 'o: 'p {
+        self.bg_texture.add_rectangle(Vec2{x: 0.0, y: 0.0}, Vec2{x: 800.0, y: 800.0}, Colour::WHITE, &render_handle);
+        self.bg_texture.draw(&mut render_handle);
+
+        match self.state {
+            MainState::InGame =&gt; {
+                self.level.draw(&mut render_handle);
+            },
+            MainState::EndMenu =&gt; {
+                self.level.draw(&mut render_handle);
+                let r1_pos = self.text[3].pos - Vec2{x: 10.0, y: 10.0};
+                let r1_size = Vec2{x: self.text[3].size.x as f32 + 20.0, y: self.text[3].size.y as f32 + 20.0};
+                let r2_pos = self.text[4].pos - Vec2{x: 10.0, y: 10.0};
+                let r2_size = Vec2{x: self.text[4].size.x as f32 + 20.0, y: self.text[4].size.y as f32 + 20.0};
+
+                self.plain_mat.add_rectangle(r1_pos, r1_size, Colour::WHITE, &render_handle);
+                self.plain_mat.add_rectangle(r2_pos, r2_size, Colour::WHITE, &render_handle);
+                self.plain_mat.draw(&mut render_handle);
+            },
+            MainState::MainMenu =&gt; {
+                let r1_pos = self.text[0].pos - Vec2{x: 10.0, y: 10.0};
+                let r1_size = Vec2{x: self.text[0].size.x as f32 + 20.0, y: self.text[0].size.y as f32 + 20.0};
+                let r2_pos = self.text[1].pos - Vec2{x: 10.0, y: 10.0};
+                let r2_size = Vec2{x: self.text[1].size.x as f32 + 20.0, y: self.text[1].size.y as f32 + 20.0};
+
+                self.logo.add_rectangle(Vec2{x: 250.0, y: 250.0}, Vec2{x: 300.0, y: 300.0}, Colour::WHITE, &render_handle);
+
+                self.plain_mat.add_rectangle(r1_pos, r1_size, Colour::WHITE, &render_handle);
+                self.plain_mat.add_rectangle(r2_pos, r2_size, Colour::WHITE, &render_handle);
+
+                self.logo.draw(&mut render_handle);
+                self.plain_mat.draw(&mut render_handle);
+            },
+        }
+        self.text.iter_mut().for_each(|t| t.draw(&mut render_handle));
+    }
+
+    fn update(&mut self, engine_handle: &mut Engine) {
+        let dt = engine_handle.get_frame_delta_time();
+        match self.state {
+            MainState::InGame =&gt; self.in_game_update(engine_handle, dt),
+            MainState::MainMenu =&gt; self.main_menu_update(engine_handle),
+            MainState::EndMenu =&gt; self.end_menu_update(engine_handle, dt),
+        }
+    }
+}
+
+impl Biscut {
+    fn new(engine_handle: &mut Engine) -&gt; Self {
+        let bg_tex = Texture::new(engine_handle, "assets/bg.png");
+        let bg_texture = MaterialBuilder::new().add_texture(bg_tex).build(engine_handle);
+
+        let logo_tex = Texture::new(engine_handle, "assets/logo.png");
+        let logo = MaterialBuilder::new().add_texture(logo_tex).build(engine_handle);
+
+        let text = vec![
+            Text::new("Start Game", 50.0, Vec2{x: 20.0, y: 600.0}, Colour::BLACK, engine_handle),
+            Text::new("Quit", 50.0, Vec2{x: 20.0, y: 680.0}, Colour::BLACK, engine_handle),
+            Text::new("How to play:", 35.0, Vec2{x: 20.0, y: 20.0}, Colour::BLACK, engine_handle),
+            Text::new("W A S D to move", 25.0, Vec2{x: 40.0, y: 60.0}, Colour::BLACK, engine_handle),
+            Text::new("Hold left click to charge", 25.0, Vec2{x: 40.0, y: 90.0}, Colour::BLACK, engine_handle),
+            Text::new("Release left click to parry incoming butter", 25.0, Vec2{x: 40.0, y: 120.0}, Colour::BLACK, engine_handle),
+        ];
+
+        Self {
+            level: Level::new(engine_handle),
+            logo,
+            text,
+            bg_texture,
+            plain_mat: MaterialBuilder::new().build(engine_handle),
+            state: MainState::MainMenu,
+        }
+    }
+
+    fn in_game_update(&mut self, engine_handle: &mut Engine, dt: f32) {
+        self.level.update(engine_handle, dt);
+        if self.level.player_dead() {
+            self.to_end(engine_handle);
+        }
+    }
+
+    fn main_menu_update(&mut self, engine_handle: &mut Engine) {
+        let mouse_pos = engine_handle.get_mouse_position();
+        let mouse_down = engine_handle.is_mouse_key_pressed(MouseKey::Left);
+
+        let r1_pos = self.text[0].pos - Vec2{x: 10.0, y: 10.0};
+        let r1_size = Vec2{x: self.text[0].size.x as f32 + 20.0, y: self.text[0].size.y as f32 + 20.0};
+        let r2_pos = self.text[1].pos - Vec2{x: 10.0, y: 10.0};
+        let r2_size = Vec2{x: self.text[1].size.x as f32 + 20.0, y: self.text[1].size.y as f32 + 20.0};
+
+        if mouse_down && collision::point_in_rect(r2_size, r2_pos, mouse_pos) {
+            engine_handle.close();
+        }
+
+        if mouse_down && collision::point_in_rect(r1_size, r1_pos, mouse_pos) {
+            self.to_game();
+        }
+    }
+
+    fn end_menu_update(&mut self, engine_handle: &mut Engine, dt: f32) {
+        self.level.dead_update(engine_handle, dt);
+
+        let mouse_pos = engine_handle.get_mouse_position();
+        let mouse_down = engine_handle.is_mouse_key_pressed(MouseKey::Left);
+
+        let r1_pos = self.text[3].pos - Vec2{x: 10.0, y: 10.0};
+        let r1_size = Vec2{x: self.text[3].size.x as f32 + 20.0, y: self.text[3].size.y as f32 + 20.0};
+        let r2_pos = self.text[4].pos - Vec2{x: 10.0, y: 10.0};
+        let r2_size = Vec2{x: self.text[4].size.x as f32 + 20.0, y: self.text[4].size.y as f32 + 20.0};
+
+        if mouse_down && collision::point_in_rect(r1_size, r1_pos, mouse_pos) {
+            engine_handle.close();
+        }
+
+        if mouse_down && collision::point_in_rect(r2_size, r2_pos, mouse_pos) {
+            self.to_game();
+            self.level.restart(engine_handle);
+        }
+    }
+
+    fn to_game(&mut self) {
+        self.text = Vec::new();
+        self.state = MainState::InGame;
+    }
+
+    fn to_end(&mut self, engine_handle: &mut Engine) {
+        self.state = MainState::EndMenu;
+        let mut text_1 = Text::new("Congrats!", 40.0, Vec2{x: 400.0, y: 230.0}, Colour::BLACK, engine_handle);
+        let mut text_2 = Text::new(&format!("You made it to wave: {}", self.level.get_wave()), 40.0, Vec2{x: 0.0, y: 270.0}, Colour::BLACK, engine_handle);
+        let mut text_3 = Text::new(&format!("Succesfully fought {} chefs", self.level.get_kills()), 40.0, Vec2{x: 0.0, y: 310.0}, Colour::BLACK, engine_handle);
+        text_1.pos.x = 400.0 - text_1.size.x as f32 / 2.0;
+        text_2.pos.x = 400.0 - text_2.size.x as f32 / 2.0;
+        text_3.pos.x = 400.0 - text_3.size.x as f32 / 2.0;
+
+        let mut restart = Text::new("Restart", 40.0, Vec2{x: 0.0, y: 390.0}, Colour::BLACK, engine_handle);
+        restart.pos.x = 400.0 - restart.size.x as f32 / 2.0;
+        let mut quit = Text::new("Quit", 40.0, Vec2{x: 0.0, y: 470.0}, Colour::BLACK, engine_handle);
+        quit.pos.x = 400.0 - quit.size.x as f32 / 2.0;
+
+        self.text = vec![text_1, text_2, text_3, restart, quit];
+    }
+}
+
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum MainState {
+    MainMenu,
+    InGame,
+    EndMenu,
+}
+
+fn move_towards(current: Vec2&lt;f32&gt;, target: Vec2&lt;f32&gt;, max_distance: f32) -&gt; Vec2&lt;f32&gt; {
+    let distance_to_player_x = target.x - current.x;
+    let distance_to_player_y = target.y - current.y;
+
+    let square_distance = distance_to_player_x.powi(2) + distance_to_player_y.powi(2);
+
+
+    let total_distance = square_distance.sqrt();
+
+    Vec2 {
+        x: current.x + distance_to_player_x/total_distance * max_distance,
+        y: current.y + distance_to_player_y/total_distance * max_distance,
+    }
+}</code></pre>
+                <h4>animation.rs:</h4>
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::Engine;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::texture::Texture;
+use bottomless_pit::vectors::Vec2;
+
+pub struct Anmiation {
+    sprite_sheet: Material,
+    sprite_size: Vec2&lt;f32&gt;,
+    frames: usize,
+    current_frame: usize,
+    frame_time_counter: f32,
+    frame_time: f32,
+    looping: bool,
+}
+
+impl Anmiation {
+    pub fn new(texture_path: &str, sprite_size: Vec2&lt;f32&gt;, frames: usize, frame_time: f32, looping: bool, engine: &mut Engine) -&gt; Self {
+        // let texture = engine_handle.create_texture(texture_path).unwrap();
+        let texture = Texture::new(engine, texture_path);
+        let sprite_sheet = MaterialBuilder::new()
+            .add_texture(texture)
+            .build(engine);
+
+        Self {
+            sprite_sheet,
+            sprite_size,
+            frames,
+            current_frame: 0,
+            frame_time_counter: 0.0,
+            frame_time,
+            looping,
+        }
+    }
+
+    pub fn add_instance(&mut self, render_handle: &RenderInformation, draw_pos: Vec2&lt;f32&gt;, draw_size: Vec2&lt;f32&gt;, flipped: bool) {
+        let dir = if flipped {
+            -1.0
+        } else {
+            1.0
+        };
+
+        self.sprite_sheet.add_rectangle_with_uv(
+            draw_pos,
+            draw_size,
+            Vec2{x: self.current_frame as f32 * self.sprite_size.x, y: 0.0},
+            Vec2{x: self.sprite_size.x * dir, y: self.sprite_size.y},
+            Colour::WHITE,
+            render_handle
+        );
+    }
+
+    pub fn add_with_rotation(&mut self, render_handle: &mut RenderInformation, draw_pos: Vec2&lt;f32&gt;, draw_size: Vec2&lt;f32&gt;, flipped: bool, deg: f32) {
+        let dir = if flipped {
+            -1.0
+        } else {
+            1.0
+        };
+
+        self.sprite_sheet.add_rectangle_ex(
+            draw_pos,
+            draw_size,
+            Colour::WHITE,
+            deg,
+            Vec2{x: self.current_frame as f32 * self.sprite_size.x, y: 0.0},
+            Vec2{x: self.sprite_size.x * dir, y: self.sprite_size.y},
+            render_handle
+        );
+    }
+
+    pub fn draw&lt;'p, 'o&gt;(&'o mut self, render_handle: &mut RenderInformation&lt;'p, 'o&gt;) where 'o: 'p {
+        self.sprite_sheet.draw(render_handle);
+    }
+
+    pub fn update(&mut self, dt: f32) {
+        self.frame_time_counter += dt;
+
+        if self.frame_time_counter &gt; self.frame_time {
+            if self.looping {
+                self.current_frame = (self.current_frame + 1) % self.frames;
+            } else if self.current_frame &lt; self.frames - 1 {
+                self.current_frame += 1;
+            }
+        }
+
+        self.frame_time_counter = self.frame_time_counter % self.frame_time;
+    }
+
+    pub fn reset(&mut self) {
+        self.current_frame = 0;
+        self.frame_time_counter = 0.0;
+    }
+
+    pub fn is_done(&self) -&gt; bool {
+        !self.looping && self.current_frame == self.frames - 1
+    }
+}</code></pre>
+                <h4>collision.rs:</h4>
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::vectors::Vec2;
+
+pub fn point_in_rect(rect_size: Vec2&lt;f32&gt;, pos: Vec2&lt;f32&gt;, point: Vec2&lt;f32&gt;) -&gt; bool {
+    if point.x &lt; pos.x {
+        return false
+    }
+    if point.y &lt; pos.y {
+        return false
+    }
+    if point.y &gt; (pos.y + rect_size.y) {
+        return false
+    }
+    if point.x &gt; (pos.x + rect_size.x) {
+        return false
+    }
+
+    true
+}
+
+pub fn rect_rect(r1_size: Vec2&lt;f32&gt;, r1_pos: Vec2&lt;f32&gt;, r2_size: Vec2&lt;f32&gt;, r2_pos: Vec2&lt;f32&gt;) -&gt; bool {
+    
+    if r1_pos.x + r1_size.x &gt;= r2_pos.x && r1_pos.x &lt;= r2_pos.x + r2_size.x &&
+        r1_pos.y + r1_size.y &gt;= r2_pos.y && r1_pos.y &lt;= r2_pos.y + r2_size.y {
+        true
+    } else {
+        false
+    }
+}</code></pre>
+                <h4>enemy.rs:</h4>
+                <pre class="example-code-block"><code class="language-rust">use web_time::Instant;
+
+use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::Engine;
+use bottomless_pit::material::Material;
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::vectors::Vec2;
+use rand::rngs::ThreadRng;
+use rand::Rng;
+
+use crate::animation::Anmiation;
+use crate::{collision, move_towards};
+use crate::player::Player;
+
+
+pub struct Enemy {
+    pub pos: Vec2&lt;f32&gt;,
+    pub size: Vec2&lt;f32&gt;,
+    shot_cooldown: Instant,
+    valid: bool,
+    speed: f32,
+    desision_timer: f32,
+    target_pos: Vec2&lt;f32&gt;,
+    hp: f32,
+    current_animation: usize,
+}
+
+impl Enemy {
+    pub fn new(pos: Vec2&lt;f32&gt;) -&gt; Self {
+        Self {
+            pos,
+            size: Vec2{x: 50.0, y: 50.0},
+            shot_cooldown: Instant::now(),
+            valid: true,
+            speed: 40.0,
+            desision_timer: 100.0,
+            target_pos: Vec2{x: 0.0, y: 0.0},
+            hp: 65.0,
+            current_animation: 0,
+        }
+    }
+
+    pub fn create_animations(engine_handle: &mut Engine) -&gt; [Anmiation; 4] {
+        [
+            Anmiation::new("assets/chefWalk.png", Vec2{x: 170.0, y: 170.0}, 5, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/chefWalkBack.png", Vec2{x: 170.0, y: 170.0}, 5, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/throwFront.png", Vec2{x: 170.0, y: 170.0}, 5, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/throwBack.png", Vec2{x: 170.0, y: 170.0}, 5, 1.0/6.0, true, engine_handle),
+        ]
+    }
+
+    pub fn draw(&self, render_handle: &mut RenderInformation, animations: &mut [Anmiation]) {
+        animations[self.current_animation].add_instance(render_handle, self.pos, self.size, false);
+    }
+
+    pub fn update(&mut self, dt: f32, player: &Player, butters: &mut Vec&lt;Butter&gt;, rand: &mut ThreadRng) {
+        if self.shot_cooldown.elapsed().as_secs_f32() &gt; 2.0 {
+            butters.push(Butter::new(self.get_center(), player.get_center()));
+            self.shot_cooldown = Instant::now();
+        }
+
+        self.desision_timer += dt;
+        if self.desision_timer &gt; 1.5 {
+            self.switch_target(player, rand);
+            self.desision_timer %= 1.5;
+        }
+
+        self.pos = move_towards(self.pos, self.target_pos, self.speed * dt);
+        
+        if self.pos == self.target_pos {
+            self.desision_timer = 0.0;
+            self.switch_target(player, rand);
+        }
+        
+        if self.shot_cooldown.elapsed().as_secs_f32() &gt; 1.5 {
+            self.current_animation = 2;
+        } else {
+            self.current_animation = 0;
+        }
+
+        if player.get_center().y &lt; self.pos.y {
+            self.current_animation += 1;
+        }
+    }
+
+    pub fn dead_update(&mut self, dt: f32, player: &Player) {
+        self.pos = move_towards(self.pos, self.target_pos, self.speed * dt);
+
+        self.current_animation = 0;
+        if player.get_center().y &gt; self.pos.y {
+            self.current_animation += 1;
+        }
+
+        self.valid = self.pos.x &gt; -50.0 && self.pos.x &lt; 850.0 && self.pos.y &gt; -50.0 && self.pos.y &lt; 850.0;
+    }
+
+    pub fn is_valid(&self) -&gt; bool {
+        self.valid
+    }
+
+    pub fn on_hit(&mut self, damage: f32) {
+        self.hp -= damage;
+        if self.hp &lt; 0.0 {
+            self.valid = false;
+        }
+    }
+
+    pub fn get_center(&self) -&gt; Vec2&lt;f32&gt; {
+        Vec2{x: self.pos.x + self.size.x/2.0, y: self.pos.y + self.size.y/2.0}
+    }
+
+    pub fn walk_off(&mut self) {
+        let left_dist = self.pos.x + 50.0;
+        let right_dist = 850.0 - self.pos.x;
+        let top_dist = self.pos.y + 50.0;
+        let bottom_dist = 850.0 - self.pos.y;
+    
+        let clostest_x = left_dist.min(right_dist);
+        let closest_y = top_dist.min(bottom_dist);
+
+        if clostest_x &lt; closest_y {
+            if left_dist &lt; right_dist {
+                self.target_pos = Vec2{x: -50.0, y: self.pos.y};
+            } else {
+                self.target_pos = Vec2{x: 850.0, y: self.pos.y};
+            }
+        } else {
+            if top_dist &lt; bottom_dist {
+                self.target_pos = Vec2{x: self.pos.x, y: -50.0};
+            } else {
+                self.target_pos = Vec2{x: self.pos.x, y: 850.0};
+            }
+        }
+    }
+
+    fn switch_target(&mut self, player: &Player, rand: &mut ThreadRng) {
+        // very sophisticated AI
+        let rng = rand.gen::&lt;f32&gt;();
+        if rng &lt;= 0.333 {
+            self.target_pos = player.get_center();
+        } else if rng &lt;= 0.666 {
+            let player_pos = player.get_center();
+            let x: f32 = (rand.gen_range(0.0..300.0) * (-1.0 * u8::from(rand.gen_range::&lt;u8, _&gt;(1..3) == 1) as f32)) + player_pos.x;
+            let y = (300.0 - x * (-1.0 * u8::from(rand.gen_range::&lt;u8, _&gt;(1..3) == 1) as f32)) + player_pos.y;
+            self.target_pos = Vec2{x, y};
+        } else {
+            let x: f32 = rand.gen_range(0.0..800.0);
+            let y: f32 = rand.gen_range(0.0..800.0);
+            self.target_pos = Vec2{x, y};
+        }
+    }
+}
+
+pub struct Butter {
+    velocity: Vec2&lt;f32&gt;,
+    pub pos: Vec2&lt;f32&gt;,
+    pub size: Vec2&lt;f32&gt;,
+    reflected: bool,
+    damage: f32,
+    pub valid: bool,
+}
+
+impl Butter {
+    pub fn new(starting_pos: Vec2&lt;f32&gt;, target: Vec2&lt;f32&gt;) -&gt; Self {
+        let move_towards = move_towards(starting_pos, target, 100.0);
+        let diff = starting_pos - move_towards;
+        Self {
+            pos: starting_pos,
+            size: Vec2{x: 15.0, y: 15.0},
+            velocity: diff,
+            reflected: false,
+            damage: 30.0,
+            valid: true,
+        }
+    }
+
+    pub fn update(&mut self, dt: f32, player: &mut Player, enemies: &mut [Enemy]) {
+        let new_x = self.pos.x - (self.velocity.x * dt);
+        let new_y = self.pos.y - (self.velocity.y * dt);
+
+        self.pos = Vec2{x: new_x, y: new_y};
+        let (p_box_pos, p_box_size) = player.get_hit_box();
+
+        let hit_player = collision::rect_rect(self.size, self.pos, p_box_size, p_box_pos);
+
+        if self.reflected {
+            enemies
+                .iter_mut()
+                .filter(|e| collision::rect_rect(self.size, self.pos, e.size, e.pos))
+                .for_each(|e| {
+                    e.on_hit(self.damage);
+                    self.valid = false;
+                });
+        }
+
+        if hit_player {
+            player.on_hit();
+            self.valid = false;
+        }
+    }
+
+    pub fn draw(&self, render_handle: &mut RenderInformation, butter_material: &mut Material) {
+        butter_material.add_rectangle(self.pos, self.size, Colour::WHITE, &render_handle);
+        // need to draw it but later.....
+    }
+
+    pub fn change_target(&mut self, new_target: Vec2&lt;f32&gt;, charge_time: f32) {
+        let move_towards = move_towards(self.pos, new_target, 100.0);
+        let diff = self.pos - move_towards;
+        self.velocity = diff;
+        self.damage += 33.0 * (charge_time + 0.7).log10() + 10.0;
+        self.reflected = true;
+    }
+
+    pub fn is_reflected(&self) -&gt; bool {
+        self.reflected
+    }
+}</code></pre>
+                <h4>level.rs:</h4>
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::Engine;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::texture::Texture;
+use bottomless_pit::vectors::Vec2;
+use rand::Rng;
+use rand::rngs::ThreadRng;
+
+use crate::animation::Anmiation;
+use crate::enemy::{Butter, Enemy};
+use crate::player::Player;
+use crate::text::Text;
+
+pub struct Level {
+    player: Player,
+    enemies: Vec&lt;Enemy&gt;,
+    butters: Vec&lt;Butter&gt;,
+    text: Vec&lt;Text&gt;,
+    wave_number: u32,
+    enemies_spawned: u32,
+    spawn_timer: f32,
+    butter_texture: Material,
+    enemy_animations: [Anmiation; 4],
+    random: ThreadRng,
+    total_kills: u32,
+}
+
+impl Level {
+    pub fn new(engine_handle: &mut Engine) -&gt; Self {
+        let player = Player::new(Vec2{x: 400.0, y: 400.0}, engine_handle);
+
+        let butter_tex = Texture::new(engine_handle, "assets/butter.png");
+        let butter_texture = MaterialBuilder::new().add_texture(butter_tex).build(engine_handle);
+
+        let mut wave_text = Text::new("Wave: 1", 40.0, Vec2{x: 200.0, y: 0.0}, Colour::BLACK, engine_handle);
+        let size = wave_text.size;
+        let x = 800 - size.x;
+        wave_text.pos.x = x as f32;
+
+        let enemy_animations = Enemy::create_animations(engine_handle);
+
+        Self {
+            player,
+            enemies: Vec::new(),
+            text: vec![wave_text],
+            butters: Vec::new(),
+            wave_number: 1,
+            enemies_spawned: 0,
+            spawn_timer: 0.0,
+            butter_texture,
+            enemy_animations,
+            random: rand::thread_rng(),
+            total_kills: 0,
+        }
+    }
+
+    pub fn update(&mut self, engine_handle: &mut Engine, dt: f32) {
+        self.spawn_enemy(dt);
+
+        self.player.update(engine_handle, dt, &mut self.butters);
+
+        self.enemy_animations.iter_mut().for_each(|a| a.update(dt));
+        self.enemies.iter_mut().for_each(|e| e.update(dt, &mut self.player, &mut self.butters, &mut self.random));
+
+        self.butters.iter_mut().for_each(|s| s.update(dt, &mut self.player, &mut self.enemies));
+        self.butters.retain(|b| b.valid && (b.pos.x &gt; 0.0 && b.pos.x &lt; 800.0) && (b.pos.y &gt; 0.0 && b.pos.y &lt; 800.0));
+
+        let len_b4 = self.enemies.len() as u32;
+        self.enemies.retain(|e| e.is_valid());
+        let len_after = self.enemies.len() as u32;
+
+        self.total_kills += len_b4 - len_after;
+
+        if self.player.is_dead() {
+            // set target to closet edge
+            self.enemies.iter_mut().for_each(|e| e.walk_off());
+        }
+
+        if self.is_wave_over() {
+            self.set_wave(self.wave_number + 1, engine_handle);
+        }
+    }
+
+    pub fn dead_update(&mut self, engine_handle: &mut Engine, dt: f32) {
+        self.player.update(engine_handle, dt, &mut self.butters);
+
+        self.enemy_animations.iter_mut().for_each(|a| a.update(dt));
+        self.butters.iter_mut().for_each(|s| s.update(dt, &mut self.player, &mut self.enemies));
+        self.enemies.iter_mut().for_each(|e| e.dead_update(dt, &self.player));
+        self.enemies.retain(|e| e.is_valid());
+        self.butters.retain(|b| b.valid && (b.pos.x &gt; 0.0 && b.pos.x &lt; 800.0) && (b.pos.y &gt; 0.0 && b.pos.y &lt; 800.0));
+    }
+
+    pub fn draw&lt;'p, 'o&gt;(&'o mut self, render_handle: &mut RenderInformation&lt;'p, 'o&gt;) where 'o: 'p {
+        // self.enemies.iter().for_each(|b: &'o Enemy| b.draw(render_handle, &mut self.enemy_animations));
+        self.enemies.iter().for_each(|e| e.draw(render_handle, &mut self.enemy_animations));
+        self.butters.iter().for_each(|b| b.draw(render_handle, &mut self.butter_texture));
+        for s in self.enemy_animations.iter_mut() {
+            s.draw(render_handle);
+        }
+        self.butter_texture.draw(render_handle);
+        self.player.draw(render_handle);
+        self.text.iter_mut().for_each(|t| t.draw(render_handle));
+    }
+
+    pub fn restart(&mut self, engine_handle: &mut Engine) {
+        self.butters = Vec::new();
+        self.enemies = Vec::new();
+        self.set_wave(1, engine_handle);
+        self.total_kills = 0;
+        self.player.restart();
+    }
+
+    pub fn player_dead(&self) -&gt; bool {
+        self.player.is_dead()
+    }
+
+    fn spawn_enemy(&mut self, dt: f32) {
+        self.spawn_timer -= dt;
+
+        if self.enemies_spawned &lt; Self::get_enemies_to_spawn(self.wave_number) &&
+        self.spawn_timer &lt; 0.0 &&
+        self.enemies.len() &lt; self.wave_number as usize + 2
+        {
+            let side: u8 = self.random.gen_range(0..4);
+            let pos: f32 = self.random.gen_range(0.0..800.0);
+            if side == 0 {
+                self.enemies.push(Enemy::new(Vec2{x: -50.0, y: pos}));
+            } else if side == 1 {
+                self.enemies.push(Enemy::new(Vec2{x: 850.0, y: pos}));
+            } else if side == 2 {
+                self.enemies.push(Enemy::new(Vec2{x: pos, y: -50.0}));
+            } else if side == 3 {
+                self.enemies.push(Enemy::new(Vec2{x: pos, y: 850.0}))
+            }
+            self.spawn_timer = Self::get_spawn_timer(self.wave_number);
+            self.enemies_spawned += 1;
+        }
+    }
+
+    fn is_wave_over(&self) -&gt; bool {
+        self.enemies_spawned == Self::get_enemies_to_spawn(self.wave_number) &&
+            self.enemies.len() == 0
+    }
+
+    fn set_wave(&mut self, wave: u32, engine_handle: &mut Engine) {
+
+        if wave &gt; self.wave_number {
+            self.player.end_wave();
+        }
+
+        self.wave_number = wave;
+        self.enemies_spawned = 0;
+        self.spawn_timer = -1.0;
+        self.text[0].change_text(&format!("Wave: {}", self.wave_number), engine_handle);
+        self.text[0].pos.x = 800.0 - self.text[0].size.x as f32;
+        self.spawn_enemy(0.0);
+    }
+
+    pub fn get_wave(&self) -&gt; u32 {
+        self.wave_number
+    }
+
+    pub fn get_kills(&self) -&gt; u32 {
+        self.total_kills
+    }
+
+    fn get_enemies_to_spawn(level: u32) -&gt; u32 {
+        let level = (level - 1) as f32;
+        if level &lt;= 10.0 {
+            (f32::powf(level, 1.1).round() as u32 * 5) + 4
+        } else {
+            f32::powf(level, 1.8) as u32 + 4
+        }
+    }
+
+    fn get_spawn_timer(wave: u32) -&gt; f32 {
+        let wave = (wave-1) as f32;
+
+        f32::max(10.0 - 1.66 * wave, 0.3)
+    }
+}</code></pre>
+                <h4>player.rs:</h4>
+<pre class="example-code-block"><code class="language-rust">use std::f32::consts::PI;
+use web_time::Instant;
+
+use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::Engine;
+use bottomless_pit::input::{Key, MouseKey};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::texture::Texture;
+use bottomless_pit::vectors::Vec2;
+
+use crate::enemy::Butter;
+use crate::animation::Anmiation;
+use crate::{collision, move_towards};
+
+
+pub struct Player {
+    pub pos: Vec2&lt;f32&gt;,
+    pub size: Vec2&lt;f32&gt;,
+    hp: u8,
+    max_hp: u8,
+    charge_timer: Option&lt;Instant&gt;,
+    weapon_pos: Vec2&lt;f32&gt;,
+    weapon_size: Vec2&lt;f32&gt;,
+    animation_state: PlayerAnmiationState,
+    animations: [Anmiation; 7],
+    attack_animations: [Anmiation; 3],
+    current_attack_animation: usize,
+    full_heart: Material,
+    empty_heart: Material,
+    rotation: f32,
+}
+
+impl Player {
+    pub fn new(pos: Vec2&lt;f32&gt;, engine_handle: &mut Engine) -&gt; Self {
+        let full_heart_tex = Texture::new(engine_handle, "assets/heart.png");
+        let empty_heart_text = Texture::new(engine_handle, "assets/heartEmpty.png");
+        let full_heart = MaterialBuilder::new().add_texture(full_heart_tex).build(engine_handle);
+        let empty_heart = MaterialBuilder::new().add_texture(empty_heart_text).build(engine_handle);
+
+        Self {
+            pos,
+            size: Vec2 {x: 50.0, y: 50.0},
+            hp: 3,
+            max_hp: 3,
+            charge_timer: None,
+            weapon_pos: Vec2 {x: 0.0, y: 0.0},
+            weapon_size: Vec2 {x: 75.0, y: 120.0},
+            animation_state: PlayerAnmiationState::IdleDown,
+            animations: Self::create_animations(engine_handle),
+            attack_animations: Self::create_attack_animations(engine_handle),
+            current_attack_animation: 0,
+            full_heart,
+            empty_heart,
+            rotation: 0.0,
+        }
+    }
+
+    fn create_animations(engine_handle: &mut Engine) -&gt; [Anmiation; 7] {
+        [
+            Anmiation::new("assets/idleUp.png", Vec2{x: 100.0, y: 100.0}, 4, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/idle.png", Vec2{x: 100.0, y: 100.0}, 4, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/idleSide.png", Vec2{x: 100.0, y: 100.0}, 4, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/walkUp.png", Vec2{x: 100.0, y: 100.0}, 6, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/walk.png", Vec2{x: 100.0, y: 100.0}, 6, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/walkSide.png", Vec2{x: 100.0, y: 100.0}, 6, 1.0/6.0, true, engine_handle),
+            Anmiation::new("assets/death.png", Vec2{x: 100.0, y: 100.0}, 1, 1.0/6.0, true, engine_handle),
+        ]
+    }
+
+    fn create_attack_animations(engine_handle: &mut Engine) -&gt; [Anmiation; 3] {
+        [
+            Anmiation::new("assets/pinIdle.png", Vec2{x: 100.0, y: 160.0}, 1, 100.0, false, engine_handle),
+            Anmiation::new("assets/pinCharge.png", Vec2{x: 100.0, y: 160.0}, 3, 1.0/7.0, false, engine_handle),
+            Anmiation::new("assets/pinSwing.png", Vec2{x: 100.0, y: 160.0}, 4, 1.0/6.0, false, engine_handle),
+        ]
+    }
+
+    pub fn draw&lt;'p, 'o&gt;(&'o mut self, render_handle: &mut RenderInformation&lt;'p, 'o&gt;) where 'o: 'p {
+        let (index, flipped) = self.animation_state.index();
+        self.animations[index].add_instance(render_handle, self.pos, self.size, flipped);
+
+        if !self.is_dead() {
+            self.attack_animations[self.current_attack_animation].add_with_rotation(render_handle, self.weapon_pos, self.weapon_size, false, self.rotation);
+        }
+
+        let mut offset = 0;
+        let step = 75;
+        let max = self.max_hp as u32 * step;
+        for _ in 0..self.hp {
+            self.full_heart.add_rectangle(Vec2{x: offset as f32, y: 0.0}, Vec2{x: 50.0, y: 50.0}, Colour::WHITE, &render_handle);
+            offset += step;
+        }
+        for _ in (offset..max).step_by(step as usize) {
+            self.empty_heart.add_rectangle(Vec2{x: offset as f32, y: 0.0}, Vec2{x: 50.0, y: 50.0}, Colour::WHITE, &render_handle);
+            offset += step;
+        }
+
+        self.animations[index].draw(render_handle);
+        self.attack_animations[self.current_attack_animation].draw(render_handle);
+        self.empty_heart.draw(render_handle);
+        self.full_heart.draw(render_handle);
+    }
+
+    pub fn update(&mut self, engine_handle: &mut Engine, dt: f32, butters: &mut Vec&lt;Butter&gt;) {
+        if self.is_dead() {
+            self.animation_state = PlayerAnmiationState::Dead;
+            return;
+        }
+
+        let movment_factor = 40.0 * dt;
+        let mouse_pos = engine_handle.get_mouse_position();
+        let animation_at_start = self.animation_state;
+        let attack_animation_start = self.current_attack_animation;
+        
+        self.weapon_pos = move_towards(self.get_center(), mouse_pos, 40.0);
+        self.weapon_pos = self.weapon_pos - Vec2{x: self.size.x/2.0, y: self.size.y/2.0};
+        self.rotoate_weapon(mouse_pos);
+
+        // cope freyhoe also 0 = straight up
+        let player_dir: u8 = 1 * u8::from(self.rotation &gt; 225.0 && self.rotation &lt;= 315.0) + // down
+            2 * u8::from(self.rotation &gt;= 135.0 && self.rotation &lt;= 225.0) + // left
+            3 * u8::from((self.rotation &gt; 315.0 && self.rotation &lt;= 360.0) || self.rotation &lt;= 45.0); // right 
+
+        self.animation_state = PlayerAnmiationState::idle_from_dir(player_dir);
+
+        let mut vel = Vec2{x: 0.0, y: 0.0};
+
+        if engine_handle.is_key_down(Key::W) {
+            vel.y -= movment_factor;
+        }
+
+        if engine_handle.is_key_down(Key::S) {
+            vel.y += movment_factor;
+        }
+
+        if engine_handle.is_key_down(Key::A) {
+            vel.x -= movment_factor;
+        }
+
+        if engine_handle.is_key_down(Key::D) {
+            vel.x += movment_factor;
+        }
+
+        if vel.x != 0.0 || vel.y != 0.0 {
+            self.pos = self.pos + vel;
+            self.animation_state = PlayerAnmiationState::walking_from_dir(player_dir);
+        }
+
+        if self.pos.x &gt; 800.0 - self.size.x {
+            self.pos.x = 800.0 - self.size.x;
+        } else if self.pos.x &lt; 0.0 {
+            self.pos.x = 0.0;
+        }
+
+        if self.pos.y &gt; 800.0 - self.size.y {
+            self.pos.y = 800.0 - self.size.y
+        } else if self.pos.y &lt; 0.0 {
+            self.pos.y = 0.0;
+        }
+
+        if engine_handle.is_mouse_key_down(MouseKey::Left) && self.attack_animations[self.current_attack_animation].is_done() {
+            match self.charge_timer {
+                Some(_) =&gt; {},
+                None =&gt; self.charge_timer = Some(Instant::now())
+            }
+            self.current_attack_animation = 1;
+        } else if engine_handle.is_mouse_key_released(MouseKey::Left) {
+            match self.charge_timer {
+                Some(time) =&gt; {
+                    let charge_time = time.elapsed().as_secs_f32();
+
+                    if charge_time &gt; 0.2 {
+                        self.charge_attack(charge_time, butters, mouse_pos);
+                    }
+                },
+                None =&gt; {},
+            }
+
+            self.charge_timer = None;
+            self.current_attack_animation = 2;
+        } else if self.attack_animations[self.current_attack_animation].is_done() {
+            self.current_attack_animation = 0;
+        }
+
+        if self.animation_state != animation_at_start {
+            let (index, _) = animation_at_start.index();
+            self.animations[index].reset();
+        }
+
+        if attack_animation_start != self.current_attack_animation {
+            self.attack_animations[attack_animation_start].reset();
+        }
+
+
+        let (index, _) = animation_at_start.index();
+        self.animations[index].update(dt);
+        self.attack_animations[self.current_attack_animation].update(dt);
+    }
+
+    pub fn restart(&mut self) {
+        self.hp = 3;
+        self.max_hp = 3;
+        self.pos = Vec2{x: 400.0, y: 400.0};
+    }
+
+    fn charge_attack(&mut self, charge_time: f32, butters: &mut Vec&lt;Butter&gt;, mouse_pos: Vec2&lt;f32&gt;) {
+        // reflect bullets
+        butters
+            .iter_mut()
+            .filter(|b| !b.is_reflected() && collision::rect_rect(b.size, b.pos, self.weapon_size, self.weapon_pos))
+            .for_each(|b| {
+                b.change_target(mouse_pos, charge_time);
+            })
+    }
+
+    fn rotoate_weapon(&mut self, mouse_pos: Vec2&lt;f32&gt;) {
+        let center = self.get_center();
+        let angle = (mouse_pos.y - center.y).atan2(mouse_pos.x - center.x)/PI*180.0;
+        self.rotation = (360.0 - angle) % 360.0;
+    }
+
+    pub fn get_hit_box(&self) -&gt; (Vec2&lt;f32&gt;, Vec2&lt;f32&gt;) {
+        let pos = Vec2{x: self.pos.x, y: self.pos.y + self.size.y/2.0};
+        let size = Vec2{x: self.size.x, y: self.size.y/2.0};
+        (pos, size)
+    }
+
+    pub fn end_wave(&mut self) {
+        self.hp += 1;
+        if self.hp &gt; self.max_hp {
+            self.max_hp += 1;
+        }
+    }
+
+    pub fn get_center(&self) -&gt; Vec2&lt;f32&gt; {
+        Vec2{x: self.pos.x + self.size.x/2.0, y: self.pos.y + self.size.y/2.0}
+    }
+
+    pub fn on_hit(&mut self) {
+        self.hp = self.hp.saturating_sub(1);
+    } 
+
+    pub fn is_dead(&self) -&gt; bool {
+        self.hp == 0
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum PlayerAnmiationState {
+    IdleUp,
+    IdleDown,
+    IdleLeft,
+    IdleRight,
+    WalkingUp,
+    WalkingDown,
+    WalkingLeft,
+    WalkingRight,
+    Dead,
+}
+
+impl PlayerAnmiationState {
+    fn idle_from_dir(dir: u8) -&gt; Self {
+        match dir {
+            0 =&gt; Self::IdleUp,
+            1 =&gt; Self::IdleDown,
+            2 =&gt; Self::IdleLeft,
+            3 =&gt; Self::IdleRight,
+            _ =&gt; unreachable!(),
+        }
+    }
+
+    fn walking_from_dir(dir: u8) -&gt; Self {
+        match dir {
+            0 =&gt; Self::WalkingUp,
+            1 =&gt; Self::WalkingDown,
+            2 =&gt; Self::WalkingLeft,
+            3 =&gt; Self::WalkingRight,
+            _ =&gt; unreachable!(),
+        }
+    }
+
+    fn index(&self) -&gt; (usize, bool) {
+        match self {
+            Self::IdleUp =&gt; (0, false),
+            Self::IdleDown =&gt; (1, false),
+            Self::IdleLeft =&gt; (2, true),
+            Self::IdleRight =&gt; (2, false),
+            Self::WalkingUp =&gt; (3, false),
+            Self::WalkingDown =&gt; (4, false),
+            Self::WalkingLeft =&gt; (5, true),
+            Self::WalkingRight =&gt; (5, false),
+            Self::Dead =&gt; (6, false),
+        }
+    }
+}</code></pre>
+                <h4>text.rs</h4>
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::Engine;
+use bottomless_pit::text::TextMaterial;
+use bottomless_pit::vectors::Vec2;
+use bottomless_pit::render::RenderInformation;
+
+pub struct Text {
+    text: TextMaterial,
+    pub pos: Vec2&gt;f32&gt;,
+    pub size: Vec2&gt;u32&gt;,
+    colour: Colour
+}
+
+impl Text {
+    pub fn new(text: &str, scale: f32, pos: Vec2&gt;f32&gt;, colour: Colour, engine: &mut Engine) -&gt; Self {
+        let text_material = TextMaterial::new(text, colour, scale, scale * 1.2, engine);
+        let size = text_material.get_measurements();
+
+        Self {
+            text: text_material,
+            pos,
+            size,
+            colour,
+        }
+    }
+
+    pub fn draw&gt;'p, 'o&gt;(&'o mut self, render_handle: &mut RenderInformation&gt;'p, 'o&gt;) where 'o: 'p {
+        self.text.add_instance(self.pos, Colour::WHITE, &render_handle);
+
+        self.text.draw(render_handle);
+    }
+
+    pub fn change_text(&mut self, new_text: &str, engine: &mut Engine) {
+        self.text.set_text(new_text, self.colour, engine);
+        self.text.prepare(engine);
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // replace with the path to the actual example
+        import init from '../examples/Dont-Butter-My-Biscut.js';
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+</body>
+</html>

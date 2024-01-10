@@ -1,5 +1,5 @@
 # Bottomless-Site
-This is a webserver that I wrote for fun and use it to run my personal website which you can find at [here](turtlebamboo.com) assuming it hasnt crashed or gone down for some reason. It is very limited as it does not support sending (or reciving) most of the MIME data types; however, I did try to limit unwrap use to make the server as stable as possible.
+This is a webserver that I wrote for fun and use it to run my personal website which you can find at [here](www.turtlebamboo.com) assuming it hasnt crashed or gone down for some reason. It is very limited as it does not support sending (or reciving) most of the MIME data types; however, I did try to limit unwrap use to make the server as stable as possible.
 
 ---
 The main control flow is as follows:
