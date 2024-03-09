@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Example</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/example-page.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script defer src="../js/prism.js"></script>
+</head>
+<body>
+    <div class="example-flex">
+        <div class="example-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
+            <h1>Camera</h1>
+            <!-- rember to give this an ID so BP doesnt append something :3 -->
+            <canvas id="Bottomless-Pit Game">
+                <!-- This is where the game goes -->
+            </canvas>
+            <div class="example-text">
+                <p>
+                    <!-- Feature Explanation -->
+                    This shows everything the camera can does like scaling, translating, and rotating.
+                    This example also shows how to work with the camera and rendering objects without 
+                    having the camera transformation.
+                </p>
+                <h4>main.rs:</h4>
+                <!-- Rust code goes here copy and paste for optional wgsl or other files -->
+<pre class="example-code-block"><code class="language-rust">use bottomless_pit::camera::Camera;
+use bottomless_pit::colour::Colour;
+use bottomless_pit::engine_handle::{Engine, EngineBuilder};
+use bottomless_pit::input::Key;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderInformation;
+use bottomless_pit::vectors::Vec2;
+use bottomless_pit::{vec2, Game};
+use bottomless_pit::texture::Texture;
+use bottomless_pit::text::TextMaterial;
+
+fn main() {
+    let mut engine = EngineBuilder::new().build().unwrap();
+
+    let texture = Texture::new(&mut engine, "examples/bplogo.png");
+
+    let material = MaterialBuilder::new()
+        .add_texture(texture)
+        .build(&mut engine);
+    
+    let camera = Camera::new(&engine);
+
+    let text = TextMaterial::new("Mouse pos: 0,0 \n Mouse pos: 0, 0", Colour::WHITE, 15.0, 20.0, &mut engine);
+
+    let game = CameraExample {
+        material,
+        text,
+        camera,
+    };
+
+    engine.run(game);
+}
+
+struct CameraExample {
+    material: Material,
+    text: TextMaterial,
+    camera: Camera,
+}
+
+impl Game for CameraExample {
+    fn render&lt;'pass, 'others&gt;(
+        &'others mut self,
+        mut render_handle: RenderInformation&lt;'pass, 'others&gt;,
+    ) where
+        'others: 'pass,
+    {
+        self.material.add_rectangle(Vec2 { x: 0.0, y: 0.0 }, Vec2{x: 300.0, y: 300.0}, Colour::WHITE, &render_handle);
+
+        self.camera.set_active(&mut render_handle);
+        self.material.draw(&mut render_handle);
+
+        render_handle.reset_camera();
+        self.text.add_instance(vec2!(0.0), Colour::WHITE, &render_handle);
+        self.text.draw(&mut render_handle);
+    }
+
+    fn update(&mut self, engine_handle: &mut Engine) {
+        let dt = engine_handle.get_frame_delta_time();
+        let mouse_pos = engine_handle.get_mouse_position();
+        let size = engine_handle.get_window_size();
+
+        let move_factor = 15.0;
+
+        if engine_handle.is_key_down(Key::A) {
+            self.camera.center.x -= move_factor * dt;
+        }
+
+        if engine_handle.is_key_down(Key::D) {
+            self.camera.center.x += move_factor * dt;
+        }
+
+        if engine_handle.is_key_down(Key::W) {
+            self.camera.center.y += move_factor * dt;
+        }
+
+        if engine_handle.is_key_down(Key::S) {
+            self.camera.center.y -= move_factor * dt;
+        }
+
+        if engine_handle.is_key_down(Key::Left) {
+            self.camera.rotation += move_factor * dt;
+        }
+
+        if engine_handle.is_key_down(Key::Right) {
+            self.camera.rotation -= move_factor * dt;
+        }
+
+        if engine_handle.is_key_down(Key::L) {
+            self.camera.scale += vec2!(2.0 * dt, 2.0 * dt);
+        }
+
+        if engine_handle.is_key_down(Key::K) {
+            self.camera.scale -= vec2!(2.0 * dt, 2.0 * dt);
+        }
+
+        if engine_handle.is_key_pressed(Key::Enter) {
+            self.camera.rotation += 45.0;
+        }
+
+        let trans_mouse = self.camera.transform_point(mouse_pos, size);
+
+        self.text.set_text(
+            &format!("Screen mouse pos: {:.3}, {:.3}\nWorld mouse pos: {:.3}, {:.3}", mouse_pos.x, mouse_pos.y, trans_mouse.x, trans_mouse.y),
+            Colour::WHITE,
+            engine_handle,
+        );
+
+        self.text.prepare(engine_handle);
+    }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // replace with the path to the actual example
+        import init from '../examples/camera.js';
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+</body>
+</html>
