@@ -32,7 +32,7 @@ fn main() {
     drop(secrets);
 
     let creds = Credentials::new(username.to_string(), password.to_string());
-    let mailer = SmtpTransport::relay("smtp.gmail.com")
+    let mailer = SmtpTransport::relay("smtp.protonmail.ch")
         .unwrap()
         .credentials(creds)
         .build();
@@ -375,11 +375,16 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
     // send the email!
     let user_email = String::from_utf8_lossy(&email);
     let user_message = String::from_utf8_lossy(&message); 
+
+    if user_message.len() == 0 {
+        return Response::new_400_error(HTTPError::InvalidContentLength);
+    }
+
     let message_to_self = format!("contacter email: {user_email},\n\n{user_message}");
     let send_to = CREDS.lines().next().unwrap();
-    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
+    let self_mailbox: Mailbox = format!("Charlie Crabtree <{send_to}>").parse().unwrap();
     let email_to_self = Message::builder()
-        .from("x <example@example.com>".parse().unwrap())
+        .from("x <eggshark@eggshark.dev>".parse().unwrap())
         .to(self_mailbox)
         .body(message_to_self)
         .unwrap();
@@ -391,7 +396,7 @@ fn mail_api(request: Request, mailer: Arc<SmtpTransport>) -> Response {
     }
     println!("{}", time.elapsed().as_millis());
 
-    let self_mailbox: Mailbox = format!("Charles Crabtree <{send_to}>").parse().unwrap();
+    let self_mailbox: Mailbox = format!("Charlie Crabtree <{send_to}>").parse().unwrap();
     let email_to_client = Message::builder()
         .from(self_mailbox)
         .to(format!("person <{user_email}>").parse().unwrap())

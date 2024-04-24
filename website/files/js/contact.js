@@ -45,6 +45,11 @@ function sendMailApiRequest() {
         messageInput.classList.add("error-highlight");
         error_text("Message too long");
         return;
+    } else if (message_len <= 0) {
+        console.log("no message");
+        messageInput.classList.add("error-highlight");
+        error_text("Must send message");
+        return;
     }
 
     const data_16 = new Uint16Array([message_len]);
