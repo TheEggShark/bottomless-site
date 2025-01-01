@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lightmap Example</title>
+    <link rel="stylesheet" href="../css/index.css">
+    <link rel="stylesheet" href="../css/example-page.css">
+    <link rel="stylesheet" href="../css/prism.css">
+    <script defer src="../js/prism.js"></script>
+</head>
+<body>
+    <div class="example-flex">
+        <div class="example-wrapper">
+            <div class="icon-bar">
+                <a href="/"><img src="../images/house.png" alt="home icon" class="blog-icon"></a>
+                <a href="/blog"><img src="../images/blog.png" alt="blog icon" class="blog-icon"></a>
+                <a href="/projects"><img src="../images/project_icon.svg" alt="blog icon" class="blog-icon"></a>
+            </div>
+            <h1>Lightmap</h1>
+            <!-- rember to give this an ID so BP doesnt append something :3 -->
+            <canvas id="Lightmap">
+                <!-- This is where the game goes -->
+            </canvas>
+            <div class="example-text">
+                <p>
+                    <!-- Feature Explanation -->
+                    This example was made to show off a "simple" multipass rendering example.
+                    One pass is used to create the "shadows" into a texture. Then a second pass is
+                    used to draw the light and "shadows" to the screen.
+                </p>
+                <h4>main.rs:</h4>
+                <!-- Rust code goes here copy and paste for optional wgsl or other files -->
+<pre class="example-code-block"><code class="language-rust">use std::cmp::Ordering;
+use std::f32::consts::PI;
+
+use bottomless_pit::engine_handle::Engine;
+use bottomless_pit::material::{Material, MaterialBuilder};
+use bottomless_pit::render::RenderHandle;
+use bottomless_pit::shader::{Shader, ShaderOptions, UniformData, UniformError};
+use bottomless_pit::texture::UniformTexture;
+use bottomless_pit::{engine_handle::EngineBuilder, *};
+use colour::Colour;
+use encase::ShaderType;
+use resource::LoadingOp;
+use vectors::Vec2;
+
+fn main() {
+    let mut engine = EngineBuilder::new()
+        .set_window_title("Lightmap")
+        .with_resolution((800, 800))
+        .build()
+        .unwrap();
+
+    let uniform_texture = UniformTexture::new(&engine, engine.get_window_size());
+
+    let light = Light {
+        colour: Colour::ORANGE,
+        pos_x: 0.0,
+        pos_y: 0.0,
+        brightness: 0.75,
+        aspect_ratio: 1.0,
+    };
+
+    let light_data = UniformData::new(&light);
+
+    let shader_options = ShaderOptions::with_all(&light_data, &uniform_texture);
+    let light_shader = Shader::new(
+        "examples/light.wgsl",
+        shader_options,
+        &mut engine,
+        LoadingOp::Blocking,
+    );
+
+    let material = MaterialBuilder::new()
+        .set_shader(light_shader)
+        .build(&mut engine);
+
+    let ocluder_material = MaterialBuilder::new().build(&mut engine);
+
+    let rectangles = vec![
+        Rectangle::new(Vec2 { x: 120.0, y: 20.0 }, Vec2 { x: 50.0, y: 50.0 }),
+        Rectangle::new(Vec2 { x: 270.0, y: 70.0 }, Vec2 { x: 50.0, y: 50.0 }),
+        Rectangle::new(Vec2 { x: 130.0, y: 280.0 }, Vec2 { x: 50.0, y: 50.0 }),
+        Rectangle::new(Vec2 { x: 220.0, y: 300.0 }, Vec2 { x: 50.0, y: 50.0 }),
+        Rectangle::new(Vec2 { x: 350.0, y: 350.0 }, Vec2 { x: 100.0, y: 100.0 }),
+    ];
+
+    let s = TextureExample {
+        material,
+        ocluder_material,
+        light,
+        uniform_texture,
+        rectangles,
+        mouse_pos: ZEROS,
+    };
+
+    engine.run(s);
+}
+
+struct TextureExample {
+    material: Material&lt;Light&gt;,
+    ocluder_material: Material,
+    light: Light,
+    uniform_texture: UniformTexture,
+    rectangles: Vec&lt;Rectangle&gt;,
+    mouse_pos: Vec2&lt;f32&gt;,
+}
+
+const ZEROS: Vec2&lt;f32&gt; = Vec2 { x: 0.0, y: 0.0 };
+
+impl Game for TextureExample {
+    fn render&lt;'o&gt;(&'o mut self, mut render_handle: RenderHandle&lt;'o&gt;) {
+        self.create_shadow_map(&mut render_handle);
+
+        let mut p2 = render_handle.begin_pass(Colour::BLACK);
+        let size = p2.get_size();
+        let size = Vec2 {
+            x: size.x as f32,
+            y: size.y as f32,
+        };
+
+        self.material
+            .add_rectangle(Vec2 { x: 0.0, y: 0.0 }, size, Colour::WHITE, &p2);
+        self.material.draw(&mut p2);
+    }
+
+    fn update(&mut self, engine_handle: &mut Engine) {
+        let mouse_pos = engine_handle.get_mouse_position();
+        self.mouse_pos = mouse_pos;
+        let window_size = engine_handle.get_window_size();
+
+        self.light.pos_x = mouse_pos.x / window_size.x as f32;
+        self.light.pos_y = mouse_pos.y / window_size.y as f32;
+        self.material
+            .update_uniform_data(&self.light, &engine_handle)
+            .unwrap_or_default();
+
+        self.material
+            .update_uniform_texture(&mut self.uniform_texture, engine_handle)
+            .unwrap_or_default();
+    }
+
+    fn on_resize(&mut self, new_size: Vec2&lt;u32&gt;, engine_handle: &mut Engine) {
+        self.light.aspect_ratio = new_size.x as f32 / new_size.y as f32;
+        match self
+            .material
+            .update_uniform_data(&self.light, &engine_handle)
+        {
+            Ok(_) =&gt; {}
+            Err(e) =&gt; match e {
+                UniformError::NotLoadedYet =&gt; {}
+                _ =&gt; panic!("{}", e),
+            },
+        }
+
+        match self.material.resize_uniform_texture(
+            &mut self.uniform_texture,
+            new_size,
+            engine_handle,
+        ) {
+            Ok(_) =&gt; {}
+            Err(e) =&gt; match e {
+                UniformError::NotLoadedYet =&gt; {}
+                _ =&gt; panic!("{}", e),
+            },
+        }
+    }
+}
+
+impl TextureExample {
+    fn create_shadow_map&lt;'o&gt;(&mut self, render_handle: &mut RenderHandle&lt;'o&gt;) {
+        let mut p1 = render_handle.begin_texture_pass(&mut self.uniform_texture, Colour::WHITE);
+
+        let light_pos = self.mouse_pos;
+
+        for rect in self.rectangles.iter() {
+            for (segment_1, segment_2) in rect.create_segments() {
+                let vert_1 = segment_1;
+                let vert_2 = segment_1
+                    + Vec2 {
+                        x: 300.0 * (segment_1.x - light_pos.x),
+                        y: 300.0 * (segment_1.y - light_pos.y),
+                    };
+                let vert_3 = segment_2;
+                let vert_4 = segment_2
+                    + Vec2 {
+                        x: 300.0 * (segment_2.x - light_pos.x),
+                        y: 300.0 * (segment_2.y - light_pos.y),
+                    };
+
+                let mut arr = [vert_1, vert_2, vert_3, vert_4];
+
+                let center_point = Vec2 {
+                    x: (vert_1.x + vert_2.x + vert_3.x + vert_4.x) / 4.0,
+                    y: (vert_1.y + vert_2.y + vert_3.y + vert_4.y) / 4.0,
+                };
+
+                for point in arr.iter_mut() {
+                    *point = *point - center_point;
+                }
+                arr.sort_by(|left, right| compare_points(left, right));
+                for point in arr.iter_mut() {
+                    *point = *point + center_point;
+                }
+
+                self.ocluder_material
+                    .add_custom(arr, [ZEROS; 4], 0.0, Colour::BLACK, &p1);
+            }
+        }
+
+        // makes sure there is not light in the squares
+        self.rectangles.iter().for_each(|rect| {
+            self.ocluder_material
+                .add_rectangle(rect.pos, rect.size, Colour::BLACK, &mut p1)
+        });
+
+        self.ocluder_material.draw(&mut p1);
+    }
+}
+
+struct Rectangle {
+    pos: Vec2&lt;f32&gt;,
+    size: Vec2&lt;f32&gt;,
+}
+
+impl Rectangle {
+    fn new(pos: Vec2&lt;f32&gt;, size: Vec2&lt;f32&gt;) -&gt; Self {
+        Self { pos, size }
+    }
+
+    fn create_segments(&self) -&gt; [(Vec2&lt;f32&gt;, Vec2&lt;f32&gt;); 4] {
+        let p1 = self.pos;
+        let p2 = Vec2 {
+            x: self.pos.x + self.size.x,
+            y: self.pos.y,
+        };
+        let p3 = Vec2 {
+            x: self.pos.x + self.size.x,
+            y: self.pos.y + self.size.y,
+        };
+        let p4 = Vec2 {
+            x: self.pos.x,
+            y: self.size.y + self.pos.y,
+        };
+        [(p1, p2), (p2, p3), (p3, p4), (p4, p1)]
+    }
+}
+
+#[derive(ShaderType)]
+struct Light {
+    colour: Colour,
+    pos_x: f32,
+    pos_y: f32,
+    brightness: f32,
+    aspect_ratio: f32,
+}
+
+// Convex Hull Algo
+fn compare_points(p1: &Vec2&lt;f32&gt;, p2: &Vec2&lt;f32&gt;) -&gt; Ordering {
+    let angle_one = get_angle(&ZEROS, p1);
+    let angle_two = get_angle(&ZEROS, p2);
+    if angle_one &lt; angle_two {
+        return Ordering::Less;
+    }
+
+    let d1 = get_distance(&ZEROS, p1);
+    let d2 = get_distance(&ZEROS, p2);
+    if (angle_one == angle_two) && (d1 &lt; d2) {
+        return Ordering::Less;
+    }
+
+    Ordering::Greater
+}
+
+fn get_angle(center_point: &Vec2&lt;f32&gt;, point: &Vec2&lt;f32&gt;) -&gt; f32 {
+    let x = point.x - center_point.x;
+    let y = point.y - center_point.y;
+    let mut angle = f32::atan2(y, x);
+    if angle &lt;= 0.0 {
+        angle += 2.0 * PI;
+    }
+
+    angle
+}
+
+fn get_distance(p1: &Vec2&lt;f32&gt;, p2: &Vec2&lt;f32&gt;) -&gt; f32 {
+    let x = p1.x - p2.x;
+    let y = p1.y - p2.y;
+    (x * x + y * y).sqrt()
+}
+</code></pre>
+                <h4>light.wgsl:</h4>
+<pre class="example-code-block"><code class="language-wgsl">struct EngineUniforms {
+    camera: mat3x3&lt;f32&gt;,
+    screen_size: vec2&lt;f32&gt;,
+}
+
+@group(1) @binding(0)
+var&lt;uniform&gt; engine: EngineUniforms;
+
+struct Light {
+    colour: vec4&lt;f32&gt;,
+    position: vec2&lt;f32&gt;,
+    brightness: f32,
+    aspect_ratio: f32,
+}
+
+@group(2) @binding(0)
+var&lt;uniform&gt; light: Light;
+@group(2) @binding(1)
+var light_map: texture_2d&lt;f32&gt;;
+@group(2) @binding(2)
+var light_map_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec2&lt;f32&gt;,
+    @location(1) tex_coords: vec2&lt;f32&gt;,
+    @location(2) colour: vec4&lt;f32&gt;
+}
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4&lt;f32&gt;,
+    @location(0) tex_coords: vec2&lt;f32&gt;,
+    @location(1) colour: vec4&lt;f32&gt;,
+}
+
+// vertex shader
+@vertex
+fn vs_main(model: VertexInput) -&gt; VertexOutput {
+    var out: VertexOutput;
+    out.tex_coords = model.tex_coords;
+    var pos: vec3&lt;f32&gt; = engine.camera * vec3&lt;f32&gt;(model.position.x, model.position.y, 1.0); // the vectors on the right the matrices go on the left in order of importance
+    
+    pos = pos / pos.z;
+    pos.x = 2.0 * pos.x / engine.screen_size.x - 1.0;
+    pos.y = ((2.0 * pos.y / engine.screen_size.y) - 1.0) * -1.0;
+    out.clip_position = vec4(pos.xy, 0.0, 1.0);
+    
+    
+    out.colour = model.colour;
+    return out;
+}
+
+// Fragment shader
+
+@fragment
+fn fs_main(in: VertexOutput) -&gt; @location(0) vec4&lt;f32&gt; {
+    var x: f32 = in.tex_coords.x - light.position.x;
+    var y: f32 = in.tex_coords.y - light.position.y;
+
+    x = x * light.aspect_ratio;
+
+    var distance = sqrt(x * x + y * y);
+    // TODO: Add blur
+    var brightness: f32 = max(0.0, 0.7-distance);
+    return textureSample(light_map, light_map_sampler, in.tex_coords) * (brightness * light.colour);
+}</code></pre>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // replace with the path to the actual example
+        import init from '../examples/lightmap.js';
+        async function run() {
+            await init();
+        }
+
+        run();
+    </script>
+</body>
+</html>
