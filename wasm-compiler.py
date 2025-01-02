@@ -1,3 +1,6 @@
+# A script to pull the latest version of bottomless-pit
+# compile all the examples and run wasm-bindgen on them
+
 import git
 from git import Repo
 import os
