@@ -1,2 +1,3 @@
 [workspace]
 members = ["website", "blog_cli"]
+exclude = ["temp"]
