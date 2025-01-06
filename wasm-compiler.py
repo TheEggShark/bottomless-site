@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # A script to pull the latest version of bottomless-pit
 # compile all the examples and run wasm-bindgen on them
 
